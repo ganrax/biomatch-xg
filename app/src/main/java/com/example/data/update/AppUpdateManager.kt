@@ -39,7 +39,7 @@ class AppUpdateManager(private val context: Context) {
     companion object {
         private const val KEY_GITHUB_REPO = "github_repo_slug"
         // Default repository placeholder or user's repo:
-        const val DEFAULT_REPO = "dzsolt5/biomatch-xg"
+        const val DEFAULT_REPO = "ganrax/biomatch-xg"
     }
 
     var githubRepo: String
