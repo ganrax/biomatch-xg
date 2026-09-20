@@ -32,14 +32,14 @@ jobs:
         run: |
           touch .env
           if [ -f debug.keystore.base64 ]; then
-            echo "Decoding debug.keystore from base64..."
+            echo "Decoding permanent fixed debug.keystore from base64..."
             base64 -d debug.keystore.base64 > debug.keystore
-          fi
-          if [ ! -f debug.keystore ]; then
-            echo "Generating fallback debug.keystore..."
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          elif [ ! -f debug.keystore ]; then
+            echo "ERROR: Permanent debug.keystore not found! Cannot guarantee signing key match."
+            exit 1
           fi
           ls -la debug.keystore
+          keytool -list -v -keystore debug.keystore -storepass android -alias androiddebugkey | grep -E "SHA1:|SHA256:"
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
