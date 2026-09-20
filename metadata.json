@@ -1,0 +1,6 @@
+{
+  "name": "BioMatch xG",
+  "description": "Prediktív futball xG és Poisson-modellező AI rendszer molekuláris dokkolási és kinetikai dinamikai fizikával pre-match és élő félidős elemzésekhez.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
