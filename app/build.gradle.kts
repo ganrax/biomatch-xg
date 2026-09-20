@@ -1,4 +1,7 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 plugins {
   alias(libs.plugins.android.application)
@@ -17,8 +20,12 @@ android {
     applicationId = "com.aistudio.biomatchxg.vqznm"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.0.1"
+    versionCode = 3
+    versionName = "1.0.2"
+
+    val buildTime = SimpleDateFormat("yyyy.MM.dd - HH:mm", Locale.getDefault()).format(Date())
+    buildConfigField("String", "BUILD_TIME_STR", "\"$buildTime\"")
+    buildConfigField("int", "BUILD_NUMBER", "3")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

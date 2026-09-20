@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.BuildConfig
 import com.example.data.update.UpdateInfo
 import com.example.ui.theme.AnomalyAmber
 import com.example.ui.theme.BorderSubtle
@@ -95,7 +96,7 @@ fun UpdateDialog(
                         color = TextSecondary
                     )
                     Text(
-                        text = "v${updateInfo.currentVersionName}",
+                        text = "v${updateInfo.currentVersionName} (Build #${BuildConfig.BUILD_NUMBER})",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary,

@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -123,27 +124,37 @@ fun BioMatchApp(viewModel: MainViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "BioMatch xG",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = NeonCyan
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .background(DeepVoid, RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
+                Column(horizontalAlignment = Alignment.Start) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "v${BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp
+                            text = "BioMatch xG",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = NeonCyan
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .background(DeepVoid, RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "v${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
+                    Text(
+                        text = "Build #${BuildConfig.BUILD_NUMBER} (${BuildConfig.BUILD_TIME_STR})",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 9.sp
+                    )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
