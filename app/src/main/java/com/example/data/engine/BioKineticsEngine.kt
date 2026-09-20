@@ -82,6 +82,27 @@ object BioKineticsEngine {
         val avgFriction = (input.tsszHome + input.tsszAway) / 2.0
         val bindingAffinity = (((avgFriction - 0.8) / 0.5) * 9.0 + 1.0).toInt().coerceIn(1, 10)
 
+        val (preMatchConcreteTip, preMatchSecondaryTip) = when {
+            totalXg <= 2.15 || under25 >= 0.58 -> {
+                Pair(
+                    "Mérkőzés Kevesebb mint 2.5 gól (Under 2.5) — Várható: ${String.format("%.2f", totalXg)} xG ($interval)",
+                    "Mindkét csapat szerez gólt (BTTS): NEM | 1. Félidő Under 1.5 gól"
+                )
+            }
+            totalXg >= 2.95 || over25 >= 0.58 -> {
+                Pair(
+                    "Mérkőzés Több mint 2.5 gól (Over 2.5) — Várható: ${String.format("%.2f", totalXg)} xG ($interval)",
+                    "Mindkét csapat szerez gólt (BTTS): IGEN | Ázsiai gólok: Over 2.75"
+                )
+            }
+            else -> {
+                Pair(
+                    "Mérkőzés 2-3 gól tartomány (vagy Ázsiai Under 3.0 gól)",
+                    if (homeEffectiveXg > awayEffectiveXg * 1.35) "Hazai győzelem (1X2)" else "1. Félidő Under 1.5 gól"
+                )
+            }
+        }
+
         return PreMatchMathResult(
             totalXg = totalXg,
             homeEffectiveXg = homeEffectiveXg,
@@ -90,6 +111,8 @@ object BioKineticsEngine {
             over25Prob = over25,
             interval = interval,
             bindingAffinity = bindingAffinity,
+            concreteBetTip = preMatchConcreteTip,
+            secondaryBetTip = preMatchSecondaryTip,
             topScores = scoreProbList.take(6)
         )
     }
@@ -122,12 +145,90 @@ object BioKineticsEngine {
             "MÉRSÉKELTEN UNDER-PROFILÚ"
         }
 
-        // Most valuable market
-        val mostValuableMarket = when {
-            under05 >= 0.52 -> "1. Félidő Kevesebb mint 0.5 gól (HT 0–0)"
-            under15 >= 0.72 -> "1. Félidő Kevesebb mint 1.5 gól (Max 1 gól)"
-            over05 >= 0.68 -> "1. Félidő Több mint 0.5 gól"
-            else -> "1. Félidő Kevesebb mint 1.5 gól"
+        // Most valuable market & Concrete score-aware tip
+        val scoreParts = input.currentScore.split("-").mapNotNull { it.trim().toIntOrNull() }
+        val homeGoals = scoreParts.getOrElse(0) { 0 }
+        val awayGoals = scoreParts.getOrElse(1) { 0 }
+        val currentTotalGoals = homeGoals + awayGoals
+
+        val (concreteTip, secondaryTip, valuableMarket) = when {
+            currentTotalGoals == 0 -> {
+                // 0-0 állás a 15. percben
+                when {
+                    calculated1hXg <= 0.40 && (isSterileState || input.kszMultiplier <= 0.75) -> {
+                        Triple(
+                            "1. Félidő Kevesebb mint 0.5 gól (1H Under 0.5) — Szünetben 0–0 marad",
+                            "Mérkőzés Under 2.5 gól | Mindkét csapat szerez gólt: NEM",
+                            "1. Félidő Under 0.5 gól (HT 0–0)"
+                        )
+                    }
+                    calculated1hXg <= 0.78 || input.kszMultiplier <= 0.90 -> {
+                        Triple(
+                            "1. Félidő Kevesebb mint 1.5 gól (1H Under 1.5) — Maximum 1 gól esik a szünetig",
+                            "Mérkőzés Kevesebb mint 2.5 gól | HT pontos eredmény: 0–0 vagy 1–0",
+                            "1. Félidő Kevesebb mint 1.5 gól (Max 1 gól)"
+                        )
+                    }
+                    calculated1hXg >= 1.05 || input.kszMultiplier >= 1.15 -> {
+                        Triple(
+                            "1. Félidő Több mint 0.5 gól (1H Over 0.5) — Legalább 1 gól érkezik a 45. perc előtt",
+                            "Mérkőzés Több mint 2.5 gól | Mindkét csapat szerez gólt: IGEN",
+                            "1. Félidő Több mint 0.5 gól"
+                        )
+                    }
+                    else -> {
+                        Triple(
+                            "1. Félidő Kevesebb mint 1.5 gól (1H Under 1.5)",
+                            "Mérkőzés Kevesebb mint 2.5 gól",
+                            "1. Félidő Kevesebb mint 1.5 gól"
+                        )
+                    }
+                }
+            }
+            currentTotalGoals == 1 -> {
+                // 1-0 vagy 0-1 állás a 15. percben
+                when {
+                    calculated1hXg <= 0.70 || input.kszMultiplier <= 0.85 -> {
+                        Triple(
+                            "1. Félidő Kevesebb mint 1.5 gól (1H Under 1.5) — Nem lesz több gól a szünetig, marad a(z) ${input.currentScore}",
+                            "Mérkőzés Kevesebb mint 2.5 gól | Következő 1H gól: Nincs",
+                            "1. Félidő Kevesebb mint 1.5 gól (Marad a ${input.currentScore})"
+                        )
+                    }
+                    calculated1hXg >= 1.10 -> {
+                        Triple(
+                            "1. Félidő Több mint 1.5 gól (1H Over 1.5) — Újabb gól várható a szünetig",
+                            "Mérkőzés Több mint 2.5 gól",
+                            "1. Félidő Több mint 1.5 gól"
+                        )
+                    }
+                    else -> {
+                        Triple(
+                            "1. Félidő Kevesebb mint 2.5 gól (1H Under 2.5) — Maximum 1 további gól a szünetig",
+                            "Mérkőzés Kevesebb mint 3.5 gól",
+                            "1. Félidő Kevesebb mint 2.5 gól"
+                        )
+                    }
+                }
+            }
+            else -> {
+                // Már 2+ gól esett az első 15 percben (pl. 1-1, 2-0)
+                val underLine = currentTotalGoals + 0.5
+                val overLine = currentTotalGoals + 0.5
+                if (calculated1hXg <= 0.65 || input.kszMultiplier <= 0.85) {
+                    Triple(
+                        "1. Félidő Kevesebb mint $underLine gól (1H Under $underLine) — Visszaáll a kontroll, marad a(z) ${input.currentScore}",
+                        "Mérkőzés Kevesebb mint ${currentTotalGoals + 2.5} gól",
+                        "1. Félidő Kevesebb mint $underLine gól"
+                    )
+                } else {
+                    Triple(
+                        "1. Félidő Több mint $overLine gól (1H Over $overLine) — Nyílt adok-kapok, újabb gól a 45. perc előtt",
+                        "Mérkőzés Több mint ${currentTotalGoals + 1.5} gól",
+                        "1. Félidő Több mint $overLine gól"
+                    )
+                }
+            }
         }
 
         val mostLikelyHtScore = if (input.currentScore == "1-0" || input.currentScore == "0-1") {
@@ -147,7 +248,9 @@ object BioKineticsEngine {
             under15Prob = under15,
             over15Prob = over15,
             dominantMarketDirection = dominantDirection,
-            mostValuableMarket = mostValuableMarket,
+            mostValuableMarket = valuableMarket,
+            concreteBetTip = concreteTip,
+            secondaryBetTip = secondaryTip,
             mostLikelyHtScore = mostLikelyHtScore
         )
     }
@@ -192,12 +295,17 @@ Eredmény: ${String.format("%.2f", math.totalXg)} xG
 """.trimIndent()
 
         val phase4 = """
-Monte-Carlo 10 000 iterációs szimuláció:
-1. Várható meccs xG: ${String.format("%.2f", math.totalXg)}
-2. Legvalószínűbb gól-intervallum: ${math.interval}
-3. 2.5 gól felett: ${String.format("%.1f", math.over25Prob * 100)}% | 2.5 gól alatt: ${String.format("%.1f", math.under25Prob * 100)}%
-4. Fekete Hattyú anomália-faktor:
-A mérkőzés kinetikáját egy korai belső védő hiba vagy egy taktikai kiállítás döntheti romba, ami a Poisson-eloszlást egy szub-optimális aszimmetrikus állapotba kényszeríti.
+Monte-Carlo 10 000 iterációs szimuláció & Fogadási Ajánlás:
+1. Várható meccs xG: ${String.format("%.2f", math.totalXg)} (Intervallum: ${math.interval})
+2. 🎯 KONKRÉT FOGADÁSI TIPP:
+   ${math.concreteBetTip}
+3. 🛡️ MÁSODLAGOS / BIZTONSÁGI PIAC:
+   ${math.secondaryBetTip}
+4. Valószínűségi megoszlás:
+   • 2.5 gól alatt (Under 2.5): ${String.format("%.1f", math.under25Prob * 100)}%
+   • 2.5 gól felett (Over 2.5): ${String.format("%.1f", math.over25Prob * 100)}%
+5. Fekete Hattyú anomália-faktor:
+   A mérkőzés kinetikáját egy korai belső védő hiba vagy egy taktikai kiállítás döntheti romba, ami a Poisson-eloszlást egy szub-optimális aszimmetrikus állapotba kényszeríti.
 """.trimIndent()
 
         return PreMatchAnalysis(
@@ -208,6 +316,8 @@ A mérkőzés kinetikáját egy korai belső védő hiba vagy egy taktikai kiál
             over25Prob = math.over25Prob,
             under25Prob = math.under25Prob,
             bindingAffinityIndex = math.bindingAffinity,
+            concreteBetTip = math.concreteBetTip,
+            secondaryBetTip = math.secondaryBetTip,
             blackSwanFactor = "Védelmi deszinkronizáció miatti korai kiállítás vagy rögzített szituációs egyéni elcsúszás a tizenhatoson belül.",
             phase1MolecularDocking = phase1,
             phase2MetabolicKinetics = phase2,
@@ -240,7 +350,7 @@ Meddőségi kockázat (16–45. perc):
 Mivel az első 15 percben a rendszer nem generált kvalitatív ziccert, a védekező struktúra alacsony energiaszinten is képes fenntartani a mélyblokkot a szünetig.
 
 Game-state gátlás (${input.currentScore}):
-${if (input.currentScore == "0-0") "0–0 állásnál mindkét fél kockázatkerülő, fegyelmezett pozíciós játékot folytat. Senki sem akar a szünet előtt hátrányba kerülni — ez az Under piac legerősebb enzimatikus inhibitora." else "A vezető csapat visszaáll védeni az előnyt, lezárva a centrális folyosókat."}
+${if (input.currentScore == "0-0") "0–0 állásnál mindkét fél kockázatkerülő, fegyelmezett pozíciós játékot folytat. Senki sem akar a szünet előtt hátrányba kerülni — ez az Under piac legerősebb enzimatikus inhibitora." else "A(z) ${input.currentScore} állásnál a vezető fél kompakt mélyblokkra vált, lezárva a centrális folyosókat."}
 
 Taktikai entrópiaszint:
 Tiszta taktikai sakkjátszma zajlik. A strukturális fegyelem magas, az entrópiaszint minimális, nem látható nyoma kaotikus adok-kapoknak.
@@ -263,20 +373,22 @@ Számított 1H xG = ${input.xg0To15} + (${input.xg16To45Base} * ${input.kszMulti
 """.trimIndent()
 
         val phase4 = """
-Monte-Carlo 1H Predikció & Piaci Preferencia:
-1. Számított 1H xG: ${String.format("%.2f", math.calculated1hXg)}
-2. DOMINÁNS PIACI IRÁNY: ${math.dominantMarketDirection}
-   Ajánlott értékpiac: ${math.mostValuableMarket}
-3. Valószínűségi Mátrix:
+Monte-Carlo 1H Predikció & Konkrét Fogadási Ajánlás:
+1. Számított 1H xG: ${String.format("%.2f", math.calculated1hXg)} (Irány: ${math.dominantMarketDirection})
+2. 🎯 KONKRÉT FOGADÁSI TIPP (15. perci állás: ${input.currentScore}):
+   ${math.concreteBetTip}
+3. 🛡️ MÁSODLAGOS / BIZTONSÁGI PIAC:
+   ${math.secondaryBetTip}
+4. Valószínűségi Mátrix:
    • 0.5 gól határon:
      - 1H Under 0.5 (szünetben 0–0): ${String.format("%.1f", math.under05Prob * 100)}%
      - 1H Over 0.5: ${String.format("%.1f", math.over05Prob * 100)}%
    • 1.5 gól határon:
      - 1H Under 1.5 (maximum 1 gól): ${String.format("%.1f", math.under15Prob * 100)}%
      - 1H Over 1.5: ${String.format("%.1f", math.over15Prob * 100)}%
-4. Legvalószínűbb Félidei Eredmény (HT): ${math.mostLikelyHtScore}
-5. Gátlástörő Fekete Hattyú:
-Egyetlen véletlen tizenhatoson belüli kézérintés, megpattanó távoli lövés vagy rögzített szituációs kapushiba robbanthatja fel az egyébként betonbiztos mélyblokkot.
+5. Várható Félidei Pontos Eredmény (HT): ${math.mostLikelyHtScore}
+6. Gátlástörő Fekete Hattyú:
+   Egyetlen véletlen tizenhatoson belüli kézérintés, megpattanó távoli lövés vagy rögzített szituációs kapushiba robbanthatja fel az egyébként betonbiztos mélyblokkot.
 """.trimIndent()
 
         return LiveHalfAnalysis(
@@ -285,6 +397,8 @@ Egyetlen véletlen tizenhatoson belüli kézérintés, megpattanó távoli löv�
             calculated1hXg = math.calculated1hXg,
             dominantMarketDirection = math.dominantMarketDirection,
             mostValuableMarket = math.mostValuableMarket,
+            concreteBetTip = math.concreteBetTip,
+            secondaryBetTip = math.secondaryBetTip,
             under05Prob = math.under05Prob,
             over05Prob = math.over05Prob,
             under15Prob = math.under15Prob,
@@ -309,6 +423,8 @@ data class PreMatchMathResult(
     val over25Prob: Double,
     val interval: String,
     val bindingAffinity: Int,
+    val concreteBetTip: String,
+    val secondaryBetTip: String,
     val topScores: List<ScoreProbability>
 )
 
@@ -322,5 +438,7 @@ data class LiveHalfMathResult(
     val over15Prob: Double,
     val dominantMarketDirection: String,
     val mostValuableMarket: String,
+    val concreteBetTip: String,
+    val secondaryBetTip: String,
     val mostLikelyHtScore: String
 )

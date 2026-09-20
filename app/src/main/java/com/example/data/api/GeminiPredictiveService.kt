@@ -48,7 +48,7 @@ class GeminiPredictiveService {
 
         val prompt = """
 Viselkedj úgy, mint egy olyan fejlett prediktív AI-rendszer, amely a bioinformatikában (molekuláris dokkolás) és a komplex dinamikus rendszerek fizikájában használt módszertanokat alkalmazza sportesemények kimenetelének modellezésére.
-A célod: Meghatározni a várható gólszámot (Total Expected Goals - xG és Poisson-eloszlású góltartomány) a következő mérkőzésre:
+A célod: Meghatározni a várható gólszámot (Total Expected Goals - xG és Poisson-eloszlású góltartomány) és KIFEJEZETTEN KONKRÉT FOGADÁSI TIPPEKET a következő mérkőzésre:
 - Hazai csapat: ${input.homeTeam}
 - Vendég csapat: ${input.awayTeam}
 - Kontextus / Hiányzók: ${input.context}
@@ -79,11 +79,14 @@ Alkalmazd a súlyozott modellt:
 Számított Várható Gólszám = (H_xG * TSSz_hazai + V_xG * TSSz_vendég) + DT
 Mutasd be a lépéseket és számításokat!
 
-### 4. Fázis: Monte-Carlo Valószínűségi Predikció
+### 4. Fázis: Monte-Carlo Valószínűségi Predikció & Konkrét Fogadási Tippek
+FONTOS SZABÁLY: Soha ne írd, hogy csak "Under" vagy "Over"! Mindig pontosan nevezd meg a konkrét piacot és a gólhatárt!
 1. Várható meccs xG (pontos számérték, pl. ${String.format("%.2f", math.totalXg)}).
 2. Legvalószínűbb gól-intervallum (pl. ${math.interval}).
-3. 2.5 gól felett/alatt valószínűsége (%-os formában).
-4. „Fekete Hattyú” anomália-faktor: Mi az az egyetlen rejtett taktikai tényező, ami teljesen felboríthatja ezt a matematikai modellt?
+3. 🎯 ELSŐDLEGES KONKRÉT FOGADÁSI TIPP (pl. "Mérkőzés Kevesebb mint 2.5 gól (Under 2.5)" vagy "Mérkőzés Több mint 2.5 gól (Over 2.5)").
+4. 🛡️ MÁSODLAGOS / BIZTONSÁGI PIAC (pl. "Mindkét csapat szerez gólt (BTTS): NEM" vagy "1. Félidő Under 1.5 gól").
+5. 2.5 gól felett/alatt valószínűsége (%-os formában).
+6. „Fekete Hattyú” anomália-faktor: Mi az az egyetlen rejtett taktikai tényező, ami teljesen felboríthatja ezt a matematikai modellt?
 """.trimIndent()
 
         try {
@@ -105,7 +108,7 @@ Mutasd be a lépéseket és számításokat!
 
         val prompt = """
 Viselkedj úgy, mint egy élő bioinformatikai és dinamikai prediktív AI-rendszer, amely a kémiai reakciók kinetikáját (katalízis vs. enzimatikus inhibíció/gátlás) alkalmazza a labdarúgó-mérkőzések ELSŐ FÉLIDEJÉNEK gólszám-modellezésére.
-A célod: Meghatározni az ELSŐ FÉLIDŐ (1H) pontos kimenetelét a 0–15. perc élő adatai alapján, KÜLÖNÖS FÓKUSSZAL ARRA, HOGY AZ „OVER” VAGY AZ „UNDER” (GÓLSZEGÉNY) FORGATÓKÖNYV A VALÓSZÍNŰBB.
+A célod: Meghatározni az ELSŐ FÉLIDŐ (1H) pontos kimenetelét a 0–15. perc élő adatai alapján, ÉS MEGADNI A PONTOS, KONKRÉT FOGADÁSI TIPPET A JELENLEGI ÁLLÁS (${input.currentScore}) FIGYELEMBEVÉTELÉVEL.
 
 Adatok a 15. percben:
 - Mérkőzés: ${input.homeTeam} vs. ${input.awayTeam}
@@ -120,6 +123,14 @@ Adatok a 15. percben:
 - 0–15. perc mért helyzetminősége (xG_0-15): ${input.xg0To15}
 - 16–45. perc bázis intenzitása (xG_16-45): ${input.xg16To45Base}
 - Inhibíciós / Kinetikai Korrekciós Szorzó (KSz): ${input.kszMultiplier}
+
+KRITIKUS KÖVETELMÉNY A FOGADÁSI TIPPEK MEGFOGALMAZÁSÁRA:
+- SOHA NE ÍRD, HOGY CSAK "Under" VAGY "Over"! Az nem elég információ egy fogadónak!
+- A tippet KÖZVETLENÜL és PONTOSAN kell megfogalmazni, a jelenlegi állás (${input.currentScore}) és az eltelt 15 perc alapján:
+  * Ha az állás most 0-0 és Under a valószínű: Írd meg pontosan, hogy "1. Félidő Kevesebb mint 0.5 gól (1H Under 0.5 - Szünetben 0–0 marad)" vagy "1. Félidő Kevesebb mint 1.5 gól (1H Under 1.5 - Maximum 1 gól a szünetig)".
+  * Ha az állás most 1-0 és Under a valószínű: Írd meg pontosan, hogy "1. Félidő Kevesebb mint 1.5 gól (1H Under 1.5 - Nem esik több gól a félidőben, marad az 1-0)".
+  * Ha Over a valószínű: Írd meg pontosan, hogy "1. Félidő Több mint 0.5 gól (1H Over 0.5 - Legalább 1 gól érkezik a 45. perc előtt)" vagy "1. Félidő Több mint 1.5 gól".
+- Add meg a másodlagos / biztonsági tippet is (pl. "Mérkőzés Under 2.5 gól", "Mindkét csapat szerez gólt: NEM")!
 
 Kérlek, az elemzést az alábbi 4 fázisú modell szerint végezd el (KIZÁRÓLAG a szünetig terjedő 45+ percre):
 ---
@@ -139,14 +150,16 @@ Kérlek, az elemzést az alábbi 4 fázisú modell szerint végezd el (KIZÁRÓL
 Számított 1H Várható Gólszám = xG(0-15) + (xG(16-45) * KSz)
 Számított érték: ${String.format("%.2f", math.calculated1hXg)} xG
 
-### 4. Fázis: Monte-Carlo Első Félidős Predikció & Piaci Preferencia
+### 4. Fázis: Monte-Carlo Első Félidős Predikció & Konkrét Piaci Tippek
 1. Számított 1H xG: ${String.format("%.2f", math.calculated1hXg)}
-2. DOMINÁNS PIACI IRÁNY (A modell legerősebb ajánlása): Határozd meg egyértelműen: „ERŐSEN UNDER-PROFILÚ” vagy „OVER-PROFILÚ”! Emeld ki a legértékesebb Under/Over piacot!
-3. Első Félidei Valószínűségi Mátrix:
+2. DOMINÁNS PIACI IRÁNY: („ERŐSEN UNDER-PROFILÚ” vagy „OVER-PROFILÚ”)
+3. 🎯 KONKRÉT FOGADÁSI TIPP a jelenlegi ${input.currentScore} állásra (pl. "1. Félidő Kevesebb mint 0.5 gól (Szünetben 0–0 marad)" vagy "1. Félidő Kevesebb mint 1.5 gól")
+4. 🛡️ MÁSODLAGOS / BIZTONSÁGI PIAC (pl. "Mérkőzés Under 2.5 gól" vagy "Mindkét csapat szerez gólt: NEM")
+5. Első Félidei Valószínűségi Mátrix:
    * 0.5 gól határon (Under 0.5 % vs Over 0.5 %)
    * 1.5 gól határon (Under 1.5 % vs Over 1.5 %)
-4. Legvalószínűbb Félidei Pontos Eredmény (HT Score).
-5. „Gátlástörő Fekete Hattyú”: Mi az az egyetlen váratlan esemény, ami felrobbanthatja a védelmet a 45. perc előtt?
+6. Legvalószínűbb Félidei Pontos Eredmény (HT Score).
+7. „Gátlástörő Fekete Hattyú”: Mi az az egyetlen váratlan esemény, ami felrobbanthatja a védelmet a 45. perc előtt?
 """.trimIndent()
 
         try {
@@ -296,6 +309,8 @@ Stílusod: Precíz, tudományos, lényegretörő, analitikus és határozott. V�
             over25Prob = math.over25Prob,
             under25Prob = math.under25Prob,
             bindingAffinityIndex = math.bindingAffinity,
+            concreteBetTip = math.concreteBetTip,
+            secondaryBetTip = math.secondaryBetTip,
             blackSwanFactor = blackSwan,
             phase1MolecularDocking = if (p1.isNotBlank()) p1 else "Receptor-illeszkedés és affinitási index elemzés folyamatban.",
             phase2MetabolicKinetics = if (p2.isNotBlank()) p2 else "Metabolikus kinetikai entrópiagörbe számítás folyamatban.",
@@ -323,6 +338,8 @@ Stílusod: Precíz, tudományos, lényegretörő, analitikus és határozott. V�
             calculated1hXg = math.calculated1hXg,
             dominantMarketDirection = math.dominantMarketDirection,
             mostValuableMarket = math.mostValuableMarket,
+            concreteBetTip = math.concreteBetTip,
+            secondaryBetTip = math.secondaryBetTip,
             under05Prob = math.under05Prob,
             over05Prob = math.over05Prob,
             under15Prob = math.under15Prob,

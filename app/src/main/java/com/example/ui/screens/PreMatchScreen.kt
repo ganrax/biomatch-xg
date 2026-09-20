@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -365,6 +366,116 @@ fun PreMatchScreen(
 
         // Results Section
         analysis?.let { res ->
+            // Concrete Betting Tip Banner
+            item {
+                val isUnder = res.calculatedXg <= 2.45 || res.under25Prob >= 0.52
+                val bannerColor = if (isUnder) KineticEmerald else NeonCyan
+                val bannerBg = if (isUnder) Color(0xFF042F24) else Color(0xFF052538)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(bannerBg, RoundedCornerShape(20.dp))
+                        .border(2.dp, bannerColor, RoundedCornerShape(20.dp))
+                        .padding(18.dp)
+                        .testTag("prematch_bet_tip_banner")
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.Start,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Psychology,
+                                    contentDescription = null,
+                                    tint = bannerColor,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "PREDIKTÍV PIACI AJÁNLÁS",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = bannerColor,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.2.sp
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .background(bannerColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = if (isUnder) "UNDER-PROFIL" else "OVER-PROFIL",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = bannerColor
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // PRIMARY CONCRETE BET TIP
+                        Text(
+                            text = "🎯 KONKRÉT FOGADÁSI TIPP:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else "Mérkőzés ${if (isUnder) "Kevesebb mint 2.5 gól (Under 2.5)" else "Több mint 2.5 gól (Over 2.5)"}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // SECONDARY MARKET
+                        if (res.secondaryBetTip.isNotBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(DeepVoid.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                    .border(1.dp, bannerColor.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Shield,
+                                        contentDescription = null,
+                                        tint = bannerColor,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = "🛡️ MÁSODLAGOS / BIZTONSÁGI PIAC:",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = bannerColor
+                                        )
+                                        Text(
+                                            text = res.secondaryBetTip,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = TextPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // KPI Cards Row
             item {
                 Row(

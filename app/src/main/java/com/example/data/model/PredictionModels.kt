@@ -29,6 +29,8 @@ data class PreMatchAnalysis(
     val over25Prob: Double,
     val under25Prob: Double,
     val bindingAffinityIndex: Int, // 1 to 10 scale
+    val concreteBetTip: String = "", // e.g. "Mérkőzés Kevesebb mint 2.5 gól (Under 2.5)"
+    val secondaryBetTip: String = "", // e.g. "Mindkét csapat szerez gólt: NEM"
     val blackSwanFactor: String,
     val phase1MolecularDocking: String,
     val phase2MetabolicKinetics: String,
@@ -66,6 +68,8 @@ data class LiveHalfAnalysis(
     val calculated1hXg: Double,
     val dominantMarketDirection: String, // "ERŐSEN UNDER-PROFILÚ" or "OVER-PROFILÚ"
     val mostValuableMarket: String, // e.g. "1H Under 0.5 gól" or "1H Under 1.5 gól"
+    val concreteBetTip: String = "", // e.g. "1. Félidő Under 0.5 gól (Szünetben 0–0 marad)"
+    val secondaryBetTip: String = "", // e.g. "Mérkőzés Under 2.5 gól | BTTS: NEM"
     val under05Prob: Double,
     val over05Prob: Double,
     val under15Prob: Double,

@@ -320,13 +320,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun saveCurrentPreMatch() {
         val analysis = _preMatchAnalysis.value ?: return
         viewModelScope.launch {
+            val concreteTip = if (analysis.concreteBetTip.isNotBlank()) analysis.concreteBetTip else "Gólszám: ${analysis.mostLikelyInterval}"
             val entity = SavedAnalysisEntity(
                 type = "PRE_MATCH",
                 homeTeam = analysis.homeTeam,
                 awayTeam = analysis.awayTeam,
                 calculatedXg = analysis.calculatedXg,
                 dominantDirectionOrInterval = analysis.mostLikelyInterval,
-                summary = "Kötési affinitás: ${analysis.bindingAffinityIndex}/10 | 2.5 gól alatt: ${String.format("%.1f", analysis.under25Prob * 100)}%",
+                summary = "🎯 Tipp: $concreteTip | Affinitás: ${analysis.bindingAffinityIndex}/10 | U2.5: ${String.format("%.1f", analysis.under25Prob * 100)}%",
                 fullReport = "1. Fázis:\n${analysis.phase1MolecularDocking}\n\n2. Fázis:\n${analysis.phase2MetabolicKinetics}\n\n3. Fázis:\n${analysis.phase3FormulaExplanation}\n\n4. Fázis:\n${analysis.phase4MonteCarloText}",
                 blackSwan = analysis.blackSwanFactor
             )
@@ -340,13 +341,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun saveCurrentLiveHalf() {
         val analysis = _liveHalfAnalysis.value ?: return
         viewModelScope.launch {
+            val concreteTip = if (analysis.concreteBetTip.isNotBlank()) analysis.concreteBetTip else analysis.mostValuableMarket
             val entity = SavedAnalysisEntity(
                 type = "LIVE_1H",
                 homeTeam = analysis.homeTeam,
                 awayTeam = analysis.awayTeam,
                 calculatedXg = analysis.calculated1hXg,
                 dominantDirectionOrInterval = analysis.dominantMarketDirection,
-                summary = "Piaci ajánlás: ${analysis.mostValuableMarket} | HT: ${analysis.mostLikelyHtScore} (Steril: ${if (analysis.isSterileState) "Igen" else "Nem"})",
+                summary = "🎯 Tipp: $concreteTip | HT: ${analysis.mostLikelyHtScore} (Steril: ${if (analysis.isSterileState) "Igen" else "Nem"})",
                 fullReport = "1. Fázis:\n${analysis.phase1ReactionAndInhibition}\n\n2. Fázis:\n${analysis.phase2KineticFlux}\n\n3. Fázis:\n${analysis.phase3FormulaDetails}\n\n4. Fázis:\n${analysis.phase4MarketText}",
                 blackSwan = analysis.blackSwanFactor
             )

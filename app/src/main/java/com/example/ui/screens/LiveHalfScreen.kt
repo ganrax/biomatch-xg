@@ -426,7 +426,7 @@ fun LiveHalfScreen(
 
         // Live Half Results
         analysis?.let { res ->
-            // Dominant Market Direction Banner (CRITICAL REQUIREMENT)
+            // Dominant Market Direction & Concrete Betting Tip Banner (CRITICAL USER FOCUS)
             item {
                 val isUnder = res.dominantMarketDirection.contains("UNDER")
                 val bannerColor = if (isUnder) KineticEmerald else AnomalyAmber
@@ -435,58 +435,103 @@ fun LiveHalfScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(bannerBg, RoundedCornerShape(18.dp))
-                        .border(2.dp, bannerColor, RoundedCornerShape(18.dp))
+                        .background(bannerBg, RoundedCornerShape(20.dp))
+                        .border(2.dp, bannerColor, RoundedCornerShape(20.dp))
                         .padding(18.dp)
                         .testTag("dominant_market_banner")
                 ) {
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                        horizontalAlignment = Alignment.Start,
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        // Header tag & Dominant direction
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = if (isUnder) Icons.Default.TrendingDown else Icons.Default.TrendingUp,
-                                contentDescription = null,
-                                tint = bannerColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "DOMINÁNS PIACI IRÁNY (MODELL AJÁNLÁSA)",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = bannerColor,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.3.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isUnder) Icons.Default.TrendingDown else Icons.Default.TrendingUp,
+                                    contentDescription = null,
+                                    tint = bannerColor,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "PREDIKTÍV AJÁNLÁS",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = bannerColor,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.2.sp
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .background(bannerColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = res.dominantMarketDirection,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = bannerColor
+                                )
+                            }
                         }
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
+                        // PRIMARY CONCRETE BET TIP
                         Text(
-                            text = res.dominantMarketDirection,
-                            style = MaterialTheme.typography.headlineMedium,
+                            text = "🎯 KONKRÉT FOGADÁSI TIPP (15' ÁLLÁS: ${input.currentScore}):",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else res.mostValuableMarket,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black,
                             color = Color.White
                         )
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        Box(
-                            modifier = Modifier
-                                .background(bannerColor.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
-                                .border(1.dp, bannerColor.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "LEÉRTÉKESEBB PIAC: ${res.mostValuableMarket}",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = bannerColor
-                            )
+                        // SECONDARY / SAFETY MARKET
+                        if (res.secondaryBetTip.isNotBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(DeepVoid.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                    .border(1.dp, bannerColor.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Shield,
+                                        contentDescription = null,
+                                        tint = bannerColor,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = "🛡️ BIZTONSÁGI / MÁSODLAGOS PIAC:",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = bannerColor
+                                        )
+                                        Text(
+                                            text = res.secondaryBetTip,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = TextPrimary
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
