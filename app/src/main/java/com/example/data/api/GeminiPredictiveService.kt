@@ -400,14 +400,29 @@ Stílusod: Precíz, tudományos, lényegretörő, analitikus és határozott. V�
             return@withContext fallbackLocalExtraction("${images.size} db képernyőkép", isLiveMode)
         }
 
-        val prompt = if (images.size > 1) {
-            """
-Elemezd a csatolt ${images.size} darab labdarúgó-mérkőzés képernyőképet (pl. Flashscore, SofaScore, Bet365, FotMob, xG grafikonok, felállások, egymás elleni H2H vagy részletes statisztikák)!
-Kérlek vizsgáld meg az ÖSSZES képet, és szintetizáld az adatokat egyetlen részletes és pontos mérkőzés-modellé!
-Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen a következő struktúrával:
+        val prompt = """
+SZIGORÚ UTASÍTÁS A LABDARÚGÓ-MÉRKŐZÉS ADATAINAK ÉS CSAPATNEVEINEK KIOLVASÁSÁRA:
+Elemezd a csatolt ${images.size} darab képernyőképet (Flashscore, SofaScore, Bet365, FotMob, Eredmények, stb.)!
+
+🎯 KRITIKUS SZABÁLYOK A CSAPATNEVEKRE:
+1. "homeTeam": A HAZAI csapat (felső sorban vagy bal oldalon lévő futballklub/válogatott) pontos, tiszta neve (pl. "Real Madrid", "Arsenal", "FC Barcelona", "Liverpool", "Ferencváros", "Bayern München", "Inter", "PSG", "Brest").
+2. "awayTeam": A VENDÉG csapat (alsó sorban vagy jobb oldalon lévő futballklub/válogatott) pontos, tiszta neve.
+3. SZIGORÚAN TILOS a bajnokság nevét (pl. "Premier League", "LaLiga", "Bajnokok Ligája", "Serie A", "NB I", "Bundesliga", "Ligue 1", "Copa del Rey", "FA Kupa") vagy fordulóját csapatnévnek megadni!
+4. SZIGORÚAN TILOS felületi gombokat vagy feliratokat (pl. "Összefoglaló", "Statisztikák", "Felállások", "Tabella", "Odds", "H2H", "Hazai", "Vendég", "Döntetlen", "Élő", "Vége") csapatnévnek megadni!
+5. Ha 3 betűs rövidítés látható (pl. "MCI", "RMA", "FCB", "ATM", "CHE", "ARS"), add meg a teljes elismert klubnevet (pl. "Manchester City", "Real Madrid", "Barcelona", "Atlético Madrid", "Chelsea", "Arsenal").
+
+📊 MECCSSTATISZTIKÁK:
+- "score": aktuális állás (pl. "0-0", "1-0", "2-1").
+- "minute": aktuális játékperc (pl. 15, 32, 45).
+- Kapura lövések (shotsHome, shotsAway), kaput eltaláló (shotsHomeOnTarget, shotsAwayOnTarget), veszélyes támadások (dangerousAttacksHome, dangerousAttacksAway), szögletek (cornersHome, cornersAway), labdabirtoklás % (possessionHome, possessionAway).
+- "context": Bajnokság neve, hiányzók, időjárás, taktikai felállás az összes kép alapján összefoglalva.
+- "homeBaseXg", "awayBaseXg": Várható gólok (xG) ha látható, vagy becsült érték.
+- "tacticalImpression": Taktikai összefoglalás a statisztikák alapján.
+
+KIZÁRÓLAG az alábbi JSON objektumot add vissza:
 {
-  "homeTeam": "Hazai csapat neve",
-  "awayTeam": "Vendég csapat neve",
+  "homeTeam": "Hazai csapat pontos neve",
+  "awayTeam": "Vendég csapat pontos neve",
   "score": "0-0",
   "minute": 15,
   "shotsHome": 2,
@@ -420,44 +435,15 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen a következő str
   "cornersAway": 0,
   "possessionHome": 55,
   "possessionAway": 45,
-  "context": "Bajnokság, hiányzók, időjárás, részletes taktikai kontextus az összes kép alapján összefoglalva",
+  "context": "Bajnokság: pl. Premier League, 24. forduló. További adatok...",
   "homeBaseXg": 1.65,
   "awayBaseXg": 1.25,
-  "tacticalImpression": "részletes taktikai benyomás a több forrásból származó statisztikák, xG és felállások alapján"
+  "tacticalImpression": "taktikai benyomás a statisztika alapján"
 }
-Ha egy adat nem látható a képeken, becsüld meg reálisan vagy hagyj ésszerű alapértéket!
 """.trimIndent()
-        } else {
-            """
-Elemezd a csatolt labdarúgó-mérkőzés képernyőképet (Flashscore, SofaScore, Bet365, FotMob vagy közvetítés)!
-Nyerd ki a látható mérkőzésadatokat, statisztikákat és állást!
-Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen a következő struktúrával:
-{
-  "homeTeam": "Hazai csapat neve",
-  "awayTeam": "Vendég csapat neve",
-  "score": "0-0",
-  "minute": 15,
-  "shotsHome": 2,
-  "shotsAway": 1,
-  "shotsHomeOnTarget": 1,
-  "shotsAwayOnTarget": 0,
-  "dangerousAttacksHome": 8,
-  "dangerousAttacksAway": 5,
-  "cornersHome": 1,
-  "cornersAway": 0,
-  "possessionHome": 55,
-  "possessionAway": 45,
-  "context": "Bajnokság, időjárás, tét, sérültek vagy egyéb észrevételek",
-  "homeBaseXg": 1.65,
-  "awayBaseXg": 1.25,
-  "tacticalImpression": "taktikai benyomás a statisztika és felállás alapján"
-}
-Ha egy adat nem látható a képen, becsüld meg reálisan vagy hagyj ésszerű alapértéket!
-""".trimIndent()
-        }
 
         try {
-            val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey"
             val parts = JSONArray()
             parts.put(JSONObject().put("text", prompt))
 
@@ -496,8 +482,13 @@ Ha egy adat nem látható a képen, becsüld meg reálisan vagy hagyj ésszerű 
         }
 
         val prompt = """
-Az alábbi vágólapról beillesztett szövegből nyerd ki a labdarúgó-mérkőzés adatait:
+Az alábbi vágólapról beillesztett szövegből nyerd ki a labdarúgó-mérkőzés pontos adatait:
 "$rawText"
+
+🎯 FONTOS:
+- "homeTeam": KIZÁRÓLAG a Hazai csapat neve (ne legyen bajnokság vagy gombnév!).
+- "awayTeam": KIZÁRÓLAG a Vendég csapat neve.
+- "score": meccs állása (pl. 0-0, 1-0).
 
 Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen:
 {
@@ -523,7 +514,7 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen:
 """.trimIndent()
 
         try {
-            val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey"
             val requestBody = JSONObject()
                 .put("contents", JSONArray().put(
                     JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))
@@ -544,6 +535,28 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen:
         }
     }
 
+    private fun cleanTeamName(name: String?): String? {
+        if (name.isNullOrBlank()) return null
+        var cleaned = name.trim()
+            .replace(Regex("^(Hazai|Vendég|Home|Away|Team\\s*[12]|1|2)\\s*[:–-]?\\s*", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("\\s*\\((H|A|Hazai|Vendég)\\)$", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("^(vs|–|-)\\s*"), "")
+            .replace(Regex("\\s*(vs|–|-)$"), "")
+            .trim()
+
+        // Filter out accidental league / UI label captures
+        val forbidden = listOf(
+            "premier league", "laliga", "la liga", "serie a", "bundesliga", "ligue 1",
+            "bajnokok ligája", "champions league", "europa league", "konferencia liga",
+            "nb i", "nb 1", "összefoglaló", "statisztika", "statisztikák", "felállások",
+            "tabella", "odds", "h2h", "eredmények", "flashscore", "sofascore"
+        )
+        if (forbidden.any { cleaned.equals(it, ignoreCase = true) }) {
+            return null
+        }
+        return cleaned.takeIf { it.isNotBlank() }
+    }
+
     private fun parseJsonToExtractedMatchData(responseRaw: String): ExtractedMatchData {
         return try {
             val root = JSONObject(responseRaw)
@@ -551,30 +564,47 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen:
             val firstCandidate = candidates?.optJSONObject(0)
             val content = firstCandidate?.optJSONObject("content")
             val parts = content?.optJSONArray("parts")
-            val text = parts?.optJSONObject(0)?.optString("text") ?: responseRaw
 
-            // Clean json if wrapped in ```
-            val cleaned = text.replace("```json", "").replace("```", "").trim()
-            val j = JSONObject(cleaned)
+            // Concatenate all text parts if multiple
+            val sb = StringBuilder()
+            if (parts != null) {
+                for (i in 0 until parts.length()) {
+                    val p = parts.optJSONObject(i)
+                    val t = p?.optString("text")
+                    if (!t.isNullOrBlank()) sb.append(t)
+                }
+            }
+            val text = if (sb.isNotEmpty()) sb.toString() else responseRaw
+
+            // Extract JSON object safely between { and }
+            val firstBrace = text.indexOf('{')
+            val lastBrace = text.lastIndexOf('}')
+            val jsonStr = if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+                text.substring(firstBrace, lastBrace + 1)
+            } else {
+                text.replace("```json", "").replace("```", "").trim()
+            }
+
+            val j = JSONObject(jsonStr)
 
             ExtractedMatchData(
-                homeTeam = j.optString("homeTeam").takeIf { it.isNotBlank() },
-                awayTeam = j.optString("awayTeam").takeIf { it.isNotBlank() },
+                homeTeam = cleanTeamName(j.optString("homeTeam")),
+                awayTeam = cleanTeamName(j.optString("awayTeam")),
                 score = j.optString("score").takeIf { it.isNotBlank() },
-                minute = if (j.has("minute")) j.optInt("minute") else null,
-                shotsHome = if (j.has("shotsHome")) j.optInt("shotsHome") else null,
-                shotsAway = if (j.has("shotsAway")) j.optInt("shotsAway") else null,
-                shotsHomeOnTarget = if (j.has("shotsHomeOnTarget")) j.optInt("shotsHomeOnTarget") else null,
-                shotsAwayOnTarget = if (j.has("shotsAwayOnTarget")) j.optInt("shotsAwayOnTarget") else null,
-                dangerousAttacksHome = if (j.has("dangerousAttacksHome")) j.optInt("dangerousAttacksHome") else null,
-                dangerousAttacksAway = if (j.has("dangerousAttacksAway")) j.optInt("dangerousAttacksAway") else null,
-                cornersHome = if (j.has("cornersHome")) j.optInt("cornersHome") else null,
-                cornersAway = if (j.has("cornersAway")) j.optInt("cornersAway") else null,
-                possessionHome = if (j.has("possessionHome")) j.optInt("possessionHome") else null,
-                possessionAway = if (j.has("possessionAway")) j.optInt("possessionAway") else null,
+                minute = if (j.has("minute") && !j.isNull("minute")) j.optInt("minute") else null,
+                shotsHome = if (j.has("shotsHome") && !j.isNull("shotsHome")) j.optInt("shotsHome") else null,
+                shotsAway = if (j.has("shotsAway") && !j.isNull("shotsAway")) j.optInt("shotsAway") else null,
+                shotsHomeOnTarget = if (j.has("shotsHomeOnTarget") && !j.isNull("shotsHomeOnTarget")) j.optInt("shotsHomeOnTarget") else null,
+                shotsAwayOnTarget = if (j.has("shotsAwayOnTarget") && !j.isNull("shotsAwayOnTarget")) j.optInt("shotsAwayOnTarget") else null,
+                dangerousAttacksHome = if (j.has("dangerousAttacksHome") && !j.isNull("dangerousAttacksHome")) j.optInt("dangerousAttacksHome") else null,
+                dangerousAttacksAway = if (j.has("dangerousAttacksAway") && !j.isNull("dangerousAttacksAway")) j.optInt("dangerousAttacksAway") else null,
+                cornersHome = if (j.has("cornersHome") && !j.isNull("cornersHome")) j.optInt("cornersHome") else null,
+                cornersAway = if (j.has("cornersAway") && !j.isNull("cornersAway")) j.optInt("cornersAway") else null,
+                possessionHome = if (j.has("possessionHome") && !j.isNull("possessionHome")) j.optInt("possessionHome") else null,
+                possessionAway = if (j.has("possessionAway") && !j.isNull("possessionAway")) j.optInt("possessionAway") else null,
                 context = j.optString("context").takeIf { it.isNotBlank() },
-                homeBaseXg = if (j.has("homeBaseXg")) j.optDouble("homeBaseXg") else null,
-                awayBaseXg = if (j.has("awayBaseXg")) j.optDouble("awayBaseXg") else null,
+                homeBaseXg = if (j.has("homeBaseXg") && !j.isNull("homeBaseXg")) j.optDouble("homeBaseXg") else null,
+                awayBaseXg = if (j.has("awayBaseXg") && !j.isNull("awayBaseXg")) j.optDouble("awayBaseXg") else null,
                 tacticalImpression = j.optString("tacticalImpression").takeIf { it.isNotBlank() }
             )
         } catch (e: Throwable) {
@@ -584,12 +614,51 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen:
     }
 
     private fun parseTextUsingRegex(raw: String, isLiveMode: Boolean): ExtractedMatchData {
-        // Simple regex matching for common scoreboard copies: e.g. "Arsenal vs Chelsea" or "Arsenal 1 - 0 Chelsea"
-        val vsMatch = Regex("([A-Za-z0-9ÁÉÍÓÖŐÚÜŰáéíóöőúüű\\s]+)\\s+(?:vs|-|–|v)\\s+([A-Za-z0-9ÁÉÍÓÖŐÚÜŰáéíóöőúüű\\s]+)").find(raw)
+        val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
+
+        // Filter out league headers / UI tabs
+        val ignoredHeaders = setOf(
+            "premier league", "laliga", "la liga", "serie a", "bundesliga", "ligue 1",
+            "bajnokok ligája", "champions league", "europa league", "konferencia liga",
+            "nb i", "nb 1", "összefoglaló", "statisztika", "statisztikák", "felállások",
+            "tabella", "odds", "h2h", "eredmények", "flashscore", "sofascore"
+        )
+        val validLines = lines.filter { line ->
+            !ignoredHeaders.any { line.equals(it, ignoreCase = true) } &&
+            !line.startsWith("http", ignoreCase = true)
+        }
+
+        var home: String? = null
+        var away: String? = null
+        var score: String? = null
+
+        // Pattern 1: "Arsenal vs Chelsea" or "Arsenal - Chelsea"
+        for (line in validLines) {
+            val vsMatch = Regex("([A-Za-z0-9ÁÉÍÓÖŐÚÜŰáéíóöőúüű\\s.'-]+)\\s+(?:vs|v|-|–)\\s+([A-Za-z0-9ÁÉÍÓÖŐÚÜŰáéíóöőúüű\\s.'-]+)", RegexOption.IGNORE_CASE).find(line)
+            if (vsMatch != null) {
+                val h = vsMatch.groupValues[1].trim()
+                val a = vsMatch.groupValues[2].trim()
+                if (h.length > 2 && a.length > 2 && !h.all { it.isDigit() } && !a.all { it.isDigit() }) {
+                    home = cleanTeamName(h)
+                    away = cleanTeamName(a)
+                    break
+                }
+            }
+        }
+
+        // Pattern 2: Consecutive lines with team names
+        if (home == null && validLines.size >= 2) {
+            val candidateHome = validLines[0]
+            val candidateAway = validLines[1]
+            if (!candidateHome.matches(Regex(".*\\d+.*")) && !candidateAway.matches(Regex(".*\\d+.*"))) {
+                home = cleanTeamName(candidateHome)
+                away = cleanTeamName(candidateAway)
+            }
+        }
+
+        // Score pattern: "1 - 0" or "0:0"
         val scoreMatch = Regex("(\\d+)\\s*[-–:]\\s*(\\d+)").find(raw)
-        val home = vsMatch?.groupValues?.getOrNull(1)?.trim()?.take(30)
-        val away = vsMatch?.groupValues?.getOrNull(2)?.trim()?.take(30)
-        val score = scoreMatch?.value
+        score = scoreMatch?.value
 
         return ExtractedMatchData(
             homeTeam = home,
@@ -618,7 +687,7 @@ KIZÁRÓLAG egy JSON-t küldj vissza:
 """.trimIndent()
 
         try {
-            val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey"
             val inlineData = JSONObject().put("mimeType", mimeType).put("data", base64Image)
             val parts = JSONArray().put(JSONObject().put("text", prompt)).put(JSONObject().put("inlineData", inlineData))
             val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", parts)))
