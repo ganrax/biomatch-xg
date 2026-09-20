@@ -20,6 +20,7 @@ import com.example.data.storage.LocalTipStorageManager
 import com.example.data.update.AppUpdateManager
 import com.example.data.update.UpdateInfo
 import com.example.util.ImageUtils
+import com.example.util.OcrMatchExtractor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -29,8 +30,25 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val geminiService = GeminiPredictiveService()
+    private val geminiService = GeminiPredictiveService(application)
     private val repository = AnalysisRepository(AppDatabase.getInstance(application).savedAnalysisDao())
+
+    private val prefs = application.getSharedPreferences("biomatch_prefs", Context.MODE_PRIVATE)
+
+    fun getCustomApiKey(): String {
+        return prefs.getString("custom_gemini_api_key", "") ?: ""
+    }
+
+    fun saveCustomApiKey(key: String) {
+        val trimmed = key.trim()
+        prefs.edit().putString("custom_gemini_api_key", trimmed).apply()
+        geminiService.customApiKey = trimmed
+        _statusMessage.value = if (trimmed.isNotBlank()) "Gemini API kulcs sikeresen mentve!" else "API kulcs törölve."
+    }
+
+    fun isApiKeyConfigured(): Boolean {
+        return geminiService.isKeyValid
+    }
 
     val savedAnalyses: StateFlow<List<SavedAnalysisEntity>> = repository.allSaved
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -397,18 +415,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun extractScoreFromScreenshot(context: Context, uri: Uri, onScoreExtracted: (String) -> Unit) {
         viewModelScope.launch {
             _isResolvingTip.value = true
-            _statusMessage.value = "Végeredmény kiolvasása a meccs képernyőképéből..."
+            _statusMessage.value = "Végeredmény kiolvasása a meccs képernyőképéből (OCR)..."
             try {
-                val pair = ImageUtils.uriToBase64Jpeg(context, uri)
-                if (pair == null) {
-                    _statusMessage.value = "Nem sikerült beolvasni a képet."
-                    return@launch
+                var extractedScore: String? = null
+
+                // 1. Try fast on-device OCR
+                val bitmap = ImageUtils.uriToBitmap(context, uri)
+                if (bitmap != null) {
+                    val ocrData = OcrMatchExtractor.extractFromBitmaps(listOf(bitmap), isLiveMode = true)
+                    extractedScore = ocrData.score
                 }
-                val (base64, mime) = pair
-                val score = geminiService.extractFinalScoreFromImage(base64, mime)
-                if (!score.isNullOrBlank()) {
-                    onScoreExtracted(score)
-                    _statusMessage.value = "Eredmény kiolvasva a képről: $score"
+
+                // 2. If not found and Gemini is configured, try Gemini Vision
+                if (extractedScore.isNullOrBlank() && geminiService.isKeyValid) {
+                    val pair = ImageUtils.uriToBase64Jpeg(context, uri)
+                    if (pair != null) {
+                        val (base64, mime) = pair
+                        extractedScore = geminiService.extractFinalScoreFromImage(base64, mime)
+                    }
+                }
+
+                if (!extractedScore.isNullOrBlank()) {
+                    onScoreExtracted(extractedScore)
+                    _statusMessage.value = "Eredmény kiolvasva a képről: $extractedScore"
                 } else {
                     _statusMessage.value = "Nem sikerült egyértelműen leolvasni az eredményt, kérlek írd be kézzel."
                 }
@@ -450,32 +479,66 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isExtractingData.value = true
             _statusMessage.value = if (uris.size > 1) {
-                "${uris.size} db képernyőkép beolvasása és szintetizálása AI látómodellel..."
+                "${uris.size} db képernyőkép közvetlen kiolvasása (OCR + AI)..."
             } else {
-                "Képernyőkép elemzése AI látómodellel folyamatban..."
+                "Képernyőkép közvetlen kiolvasása (OCR + AI)..."
             }
 
             try {
+                // 1. First: Load bitmaps and run local on-device ML Kit OCR
+                val bitmaps = mutableListOf<android.graphics.Bitmap>()
                 val images = mutableListOf<Pair<String, String>>()
                 for (uri in uris) {
+                    val bitmap = ImageUtils.uriToBitmap(context, uri)
+                    if (bitmap != null) bitmaps.add(bitmap)
                     val pair = ImageUtils.uriToBase64Jpeg(context, uri)
-                    if (pair != null) {
-                        images.add(pair)
-                    }
+                    if (pair != null) images.add(pair)
                 }
 
-                if (images.isEmpty()) {
-                    _statusMessage.value = "Nem sikerült beolvasni a kiválasztott képeket."
+                if (bitmaps.isEmpty() && images.isEmpty()) {
+                    _statusMessage.value = "Nem sikerült megnyitni a kiválasztott képeket."
                     return@launch
                 }
 
-                val data = geminiService.extractMatchDataFromMultipleImages(images, isLiveMode)
-                applyExtractedMatchData(data, isLiveMode)
-                _statusMessage.value = if (images.size > 1) {
-                    "${images.size} db képernyőkép adatai sikeresen egyesítve: ${data.homeTeam ?: "Hazai"} vs ${data.awayTeam ?: "Vendég"}!"
-                } else {
-                    "Képernyőkép adatai sikeresen beillesztve: ${data.homeTeam ?: "Hazai"} vs ${data.awayTeam ?: "Vendég"}!"
-                }
+                val ocrData = if (bitmaps.isNotEmpty()) {
+                    OcrMatchExtractor.extractFromBitmaps(bitmaps, isLiveMode)
+                } else null
+
+                // 2. Second: If Gemini API Key is configured, run Gemini Vision for deep synthesis
+                val geminiData = if (images.isNotEmpty() && geminiService.isKeyValid) {
+                    try {
+                        geminiService.extractMatchDataFromMultipleImages(images, isLiveMode)
+                    } catch (e: Throwable) {
+                        null
+                    }
+                } else null
+
+                // 3. Merge: prefer Gemini if present, fallback to OCR
+                val finalData = ExtractedMatchData(
+                    homeTeam = geminiData?.homeTeam ?: ocrData?.homeTeam,
+                    awayTeam = geminiData?.awayTeam ?: ocrData?.awayTeam,
+                    score = geminiData?.score ?: ocrData?.score,
+                    minute = geminiData?.minute ?: ocrData?.minute,
+                    shotsHome = geminiData?.shotsHome ?: ocrData?.shotsHome,
+                    shotsAway = geminiData?.shotsAway ?: ocrData?.shotsAway,
+                    shotsHomeOnTarget = geminiData?.shotsHomeOnTarget ?: ocrData?.shotsHomeOnTarget,
+                    shotsAwayOnTarget = geminiData?.shotsAwayOnTarget ?: ocrData?.shotsAwayOnTarget,
+                    dangerousAttacksHome = geminiData?.dangerousAttacksHome ?: ocrData?.dangerousAttacksHome,
+                    dangerousAttacksAway = geminiData?.dangerousAttacksAway ?: ocrData?.dangerousAttacksAway,
+                    cornersHome = geminiData?.cornersHome ?: ocrData?.cornersHome,
+                    cornersAway = geminiData?.cornersAway ?: ocrData?.cornersAway,
+                    possessionHome = geminiData?.possessionHome ?: ocrData?.possessionHome,
+                    possessionAway = geminiData?.possessionAway ?: ocrData?.possessionAway,
+                    context = geminiData?.context ?: ocrData?.context,
+                    homeBaseXg = geminiData?.homeBaseXg ?: ocrData?.homeBaseXg,
+                    awayBaseXg = geminiData?.awayBaseXg ?: ocrData?.awayBaseXg,
+                    tacticalImpression = geminiData?.tacticalImpression ?: ocrData?.tacticalImpression
+                )
+
+                applyExtractedMatchData(finalData, isLiveMode)
+                val h = finalData.homeTeam ?: "Hazai"
+                val a = finalData.awayTeam ?: "Vendég"
+                _statusMessage.value = "Képernyőképről sikeresen kiolvasva: $h vs $a"
             } catch (e: Exception) {
                 _statusMessage.value = "Képfeldolgozási hiba: ${e.message}"
             } finally {

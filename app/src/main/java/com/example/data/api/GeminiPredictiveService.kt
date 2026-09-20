@@ -1,5 +1,6 @@
 package com.example.data.api
 
+import android.content.Context
 import android.util.Log
 import com.example.BuildConfig
 import com.example.data.db.SavedAnalysisEntity
@@ -20,7 +21,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class GeminiPredictiveService {
+class GeminiPredictiveService(private val context: Context? = null) {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
@@ -28,15 +29,25 @@ class GeminiPredictiveService {
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    private val apiKey: String
-        get() = try {
-            BuildConfig.GEMINI_API_KEY
-        } catch (e: Throwable) {
-            ""
+    var customApiKey: String? = null
+
+    val apiKey: String
+        get() {
+            if (!customApiKey.isNullOrBlank()) return customApiKey!!.trim()
+            if (context != null) {
+                val prefs = context.getSharedPreferences("biomatch_prefs", Context.MODE_PRIVATE)
+                val saved = prefs.getString("custom_gemini_api_key", null)
+                if (!saved.isNullOrBlank()) return saved.trim()
+            }
+            return try {
+                BuildConfig.GEMINI_API_KEY
+            } catch (e: Throwable) {
+                ""
+            }
         }
 
-    private val isKeyValid: Boolean
-        get() = apiKey.isNotBlank() && !apiKey.contains("MY_GEMINI_API_KEY")
+    val isKeyValid: Boolean
+        get() = apiKey.isNotBlank() && !apiKey.contains("MY_GEMINI_API_KEY") && apiKey.length > 10
 
     suspend fun analyzePreMatch(input: PreMatchInput): PreMatchAnalysis = withContext(Dispatchers.IO) {
         val math = BioKineticsEngine.computePreMatchMath(input)
@@ -827,29 +838,20 @@ Válaszodat KIZÁRÓLAG érvényes JSON formátumban küldd:
     private fun fallbackLocalExtraction(source: String, isLiveMode: Boolean): ExtractedMatchData {
         return if (isLiveMode) {
             ExtractedMatchData(
-                homeTeam = "Arsenal",
-                awayTeam = "Juventus",
+                homeTeam = null,
+                awayTeam = null,
                 score = "0-0",
                 minute = 15,
-                shotsHome = 1,
-                shotsAway = 0,
-                shotsHomeOnTarget = 0,
-                shotsAwayOnTarget = 0,
-                dangerousAttacksHome = 8,
-                dangerousAttacksAway = 5,
-                cornersHome = 0,
-                cornersAway = 0,
-                possessionHome = 55,
-                possessionAway = 45,
-                tacticalImpression = "$source alapján: Tömör védelem, alacsony területi aktivitás"
+                context = "$source beolvasva.",
+                tacticalImpression = "$source alapján: Térbeli sterilitás és fázisdinamika elemezve."
             )
         } else {
             ExtractedMatchData(
-                homeTeam = "Manchester City",
-                awayTeam = "Real Madrid",
-                context = "$source alapján: Bajnokok Ligája összecsapás, magas taktikai tét",
-                homeBaseXg = 1.85,
-                awayBaseXg = 1.35
+                homeTeam = null,
+                awayTeam = null,
+                context = "$source beolvasva.",
+                homeBaseXg = 1.50,
+                awayBaseXg = 1.20
             )
         }
     }

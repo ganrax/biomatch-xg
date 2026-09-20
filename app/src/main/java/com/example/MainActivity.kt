@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.BuildConfig
 import com.example.ui.MainViewModel
+import com.example.ui.components.ApiKeyDialog
 import com.example.ui.components.UpdateDialog
 import com.example.ui.screens.ChatbotScreen
 import com.example.ui.screens.HistoryScreen
@@ -98,6 +100,8 @@ fun BioMatchApp(viewModel: MainViewModel) {
     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
     val downloadProgress by viewModel.downloadProgress.collectAsState()
 
+    var showApiKeyDialog by remember { mutableStateOf(false) }
+
     // Auto-check for updates quietly on first launch
     LaunchedEffect(Unit) {
         viewModel.checkForAppUpdates(isManual = false)
@@ -108,6 +112,14 @@ fun BioMatchApp(viewModel: MainViewModel) {
             snackbarHostState.showSnackbar(it)
             viewModel.clearStatusMessage()
         }
+    }
+
+    if (showApiKeyDialog) {
+        ApiKeyDialog(
+            initialKey = viewModel.getCustomApiKey(),
+            onSaveKey = { viewModel.saveCustomApiKey(it) },
+            onDismiss = { showApiKeyDialog = false }
+        )
     }
 
     Scaffold(
@@ -158,6 +170,20 @@ fun BioMatchApp(viewModel: MainViewModel) {
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { showApiKeyDialog = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = "AI és OCR Beállítások",
+                            tint = if (viewModel.isApiKeyConfigured()) KineticEmerald else TextMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
                     if (isCheckingUpdate) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),

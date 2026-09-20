@@ -46,4 +46,33 @@ object ImageUtils {
                 null
             }
         }
+
+    suspend fun uriToBitmap(context: Context, uri: Uri, maxDimension: Int = 1400): Bitmap? =
+        withContext(Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext null
+                val originalBitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+                if (originalBitmap == null) return@withContext null
+
+                val width = originalBitmap.width
+                val height = originalBitmap.height
+                val longest = max(width, height)
+
+                if (longest > maxDimension) {
+                    val scale = maxDimension.toFloat() / longest
+                    Bitmap.createScaledBitmap(
+                        originalBitmap,
+                        (width * scale).toInt(),
+                        (height * scale).toInt(),
+                        true
+                    )
+                } else {
+                    originalBitmap
+                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
+                null
+            }
+        }
 }

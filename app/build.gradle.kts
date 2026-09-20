@@ -20,12 +20,12 @@ android {
     applicationId = "com.aistudio.biomatchxg.vqznm"
     minSdk = 24
     targetSdk = 36
-    versionCode = 7
-    versionName = "1.0.5"
+    versionCode = 8
+    versionName = "1.0.6"
 
     val buildTime = SimpleDateFormat("yyyy.MM.dd - HH:mm", Locale.getDefault()).format(Date())
     buildConfigField("String", "BUILD_TIME_STR", "\"$buildTime\"")
-    buildConfigField("int", "BUILD_NUMBER", "7")
+    buildConfigField("int", "BUILD_NUMBER", "8")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -124,6 +124,7 @@ dependencies {
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
+  implementation(libs.mlkit.text.recognition)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
