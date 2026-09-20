@@ -516,20 +516,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // --- App Update Methods ---
-    fun checkForAppUpdates() {
+    fun checkForAppUpdates(isManual: Boolean = false) {
         viewModelScope.launch {
             _isCheckingUpdate.value = true
-            _statusMessage.value = "Frissítések keresése a GitHub tárolóban (${updateManager.githubRepo})..."
+            if (isManual) {
+                _statusMessage.value = "Frissítések keresése a GitHub tárolóban (${updateManager.githubRepo})..."
+            }
             try {
                 val info = updateManager.checkForUpdates()
-                _updateInfo.value = info
-                if (info.hasUpdate) {
-                    _statusMessage.value = "Új verzió elérhető: ${info.latestVersionName}!"
+                if (isManual) {
+                    _updateInfo.value = info
+                    if (info.hasUpdate) {
+                        _statusMessage.value = "Új verzió elérhető: v${info.latestVersionName}!"
+                    } else {
+                        _statusMessage.value = "A legfrissebb verziót használod (v${info.currentVersionName})."
+                    }
                 } else {
-                    _statusMessage.value = "A legfrissebb verziót használod (${info.currentVersionName})."
+                    // Auto-check on launch: only popup if there is genuinely an update and it wasn't dismissed
+                    if (info.hasUpdate && !updateManager.isVersionDismissed(info.latestVersionName)) {
+                        _updateInfo.value = info
+                    } else {
+                        _updateInfo.value = null
+                    }
                 }
             } catch (e: Exception) {
-                _statusMessage.value = "Frissítés-ellenőrzési hiba: ${e.message}"
+                if (isManual) {
+                    _statusMessage.value = "Frissítés-ellenőrzési hiba: ${e.message}"
+                }
             } finally {
                 _isCheckingUpdate.value = false
             }
@@ -554,7 +567,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun dismissUpdateDialog() {
+    fun dismissUpdateDialog(versionToDismiss: String? = null) {
+        if (versionToDismiss != null) {
+            updateManager.dismissVersion(versionToDismiss)
+        }
         _updateInfo.value = null
     }
 }

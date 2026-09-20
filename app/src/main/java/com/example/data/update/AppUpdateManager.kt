@@ -38,13 +38,45 @@ class AppUpdateManager(private val context: Context) {
 
     companion object {
         private const val KEY_GITHUB_REPO = "github_repo_slug"
-        // Default repository placeholder or user's repo:
+        private const val KEY_DISMISSED_VERSION = "dismissed_version_tag"
         const val DEFAULT_REPO = "ganrax/biomatch-xg"
     }
 
     var githubRepo: String
         get() = prefs.getString(KEY_GITHUB_REPO, DEFAULT_REPO) ?: DEFAULT_REPO
         set(value) = prefs.edit().putString(KEY_GITHUB_REPO, value.trim()).apply()
+
+    fun dismissVersion(version: String) {
+        prefs.edit().putString(KEY_DISMISSED_VERSION, version.trim()).apply()
+    }
+
+    fun isVersionDismissed(version: String): Boolean {
+        val dismissed = prefs.getString(KEY_DISMISSED_VERSION, "") ?: ""
+        return dismissed.isNotBlank() && dismissed.equals(version.trim(), ignoreCase = true)
+    }
+
+    private fun isNewerVersion(latest: String, current: String): Boolean {
+        val cleanLatest = latest.removePrefix("v").trim()
+        val cleanCurrent = current.removePrefix("v").trim()
+        if (cleanLatest.equals(cleanCurrent, ignoreCase = true) || cleanLatest.equals("latest", ignoreCase = true)) {
+            return false
+        }
+
+        val latestParts = cleanLatest.split(".").mapNotNull { it.toIntOrNull() }
+        val currentParts = cleanCurrent.split(".").mapNotNull { it.toIntOrNull() }
+
+        if (latestParts.isNotEmpty() && currentParts.isNotEmpty()) {
+            val maxLen = maxOf(latestParts.size, currentParts.size)
+            for (i in 0 until maxLen) {
+                val l = latestParts.getOrElse(i) { 0 }
+                val c = currentParts.getOrElse(i) { 0 }
+                if (l > c) return true
+                if (l < c) return false
+            }
+            return false
+        }
+        return cleanLatest != cleanCurrent
+    }
 
     suspend fun checkForUpdates(): UpdateInfo = withContext(Dispatchers.IO) {
         val currentVersion = BuildConfig.VERSION_NAME
@@ -72,9 +104,19 @@ class AppUpdateManager(private val context: Context) {
 
             val bodyString = response.body?.string() ?: ""
             val json = JSONObject(bodyString)
-            val tagName = json.optString("tag_name", "").removePrefix("v").trim()
+            val rawTag = json.optString("tag_name", "").trim()
+            val releaseName = json.optString("name", "").trim()
             val releaseBody = json.optString("body", "Automatikus GitHub Action frissítés.")
             val publishedAt = json.optString("published_at", "")
+
+            // Extract version string from tag_name or release name (e.g. "v1.0.2" -> "1.0.2")
+            var versionStr = rawTag.removePrefix("v").trim()
+            if (versionStr.equals("latest", ignoreCase = true) || versionStr.isBlank()) {
+                val versionMatch = Regex("""\b(\d+\.\d+(\.\d+)?)\b""").find(releaseName)
+                if (versionMatch != null) {
+                    versionStr = versionMatch.value
+                }
+            }
 
             var apkUrl: String? = null
             val assets = json.optJSONArray("assets")
@@ -89,16 +131,19 @@ class AppUpdateManager(private val context: Context) {
                 }
             }
 
-            // Fallback direct release URL if asset array is empty
             if (apkUrl == null && repo.isNotBlank()) {
                 apkUrl = "https://github.com/$repo/releases/download/latest/BioMatch-xG-latest.apk"
             }
 
-            val hasUpdate = tagName.isNotBlank() && (tagName != currentVersion && tagName != "latest") || (tagName == "latest")
+            val hasUpdate = if (versionStr.isNotBlank() && !versionStr.equals("latest", ignoreCase = true)) {
+                isNewerVersion(versionStr, currentVersion)
+            } else {
+                false
+            }
 
             UpdateInfo(
                 hasUpdate = hasUpdate,
-                latestVersionName = if (tagName.isNotBlank()) tagName else "Legújabb",
+                latestVersionName = if (versionStr.isNotBlank()) versionStr else currentVersion,
                 currentVersionName = currentVersion,
                 releaseNotes = releaseBody,
                 apkDownloadUrl = apkUrl,

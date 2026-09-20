@@ -44,6 +44,13 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Extract App Version
+        id: app_version
+        run: |
+          VERSION=$(grep 'versionName = ' app/build.gradle.kts | head -n 1 | cut -d'"' -f2)
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Building BioMatch xG version: $VERSION"
+
       - name: Rename APK for Release
         run: |
           mkdir -p release_apk
@@ -59,14 +66,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
-          tag_name: latest
-          name: "BioMatch xG Legfrissebb Verzió"
+          tag_name: "v${{ env.APP_VERSION }}"
+          name: "BioMatch xG v${{ env.APP_VERSION }}"
           body: |
-            🚀 **Automatikus BioMatch xG Frissítés**
+            🚀 **Automatikus BioMatch xG Frissítés (v${{ env.APP_VERSION }})**
             Ez az APK automatikusan fordult le a legutóbbi kódmódosításból.
             
             Közvetlen letöltés az alkalmazáson belülről vagy közvetlenül a böngészőből:
-            [BioMatch-xG-latest.apk](https://github.com/${{ github.repository }}/releases/download/latest/BioMatch-xG-latest.apk)
+            [BioMatch-xG-latest.apk](https://github.com/${{ github.repository }}/releases/download/v${{ env.APP_VERSION }}/BioMatch-xG-latest.apk)
           draft: false
           prerelease: false
           files: release_apk/BioMatch-xG-latest.apk

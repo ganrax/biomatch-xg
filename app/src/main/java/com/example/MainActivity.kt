@@ -97,9 +97,9 @@ fun BioMatchApp(viewModel: MainViewModel) {
     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
     val downloadProgress by viewModel.downloadProgress.collectAsState()
 
-    // Auto-check for updates on first launch
+    // Auto-check for updates quietly on first launch
     LaunchedEffect(Unit) {
-        viewModel.checkForAppUpdates()
+        viewModel.checkForAppUpdates(isManual = false)
     }
 
     LaunchedEffect(statusMessage) {
@@ -155,7 +155,7 @@ fun BioMatchApp(viewModel: MainViewModel) {
                         )
                     } else {
                         IconButton(
-                            onClick = { viewModel.checkForAppUpdates() },
+                            onClick = { viewModel.checkForAppUpdates(isManual = true) },
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
@@ -263,7 +263,7 @@ fun BioMatchApp(viewModel: MainViewModel) {
                 currentRepo = viewModel.githubRepoSlug,
                 onSaveRepo = { newRepo -> viewModel.githubRepoSlug = newRepo },
                 onStartDownload = { url -> viewModel.downloadAndInstallUpdate(url) },
-                onDismiss = { viewModel.dismissUpdateDialog() }
+                onDismiss = { viewModel.dismissUpdateDialog(info.latestVersionName) }
             )
         }
     }
