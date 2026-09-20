@@ -441,21 +441,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Automatic Data Extraction from Screenshot / Clipboard ---
     fun importScreenshot(context: Context, uri: Uri, isLiveMode: Boolean) {
+        importScreenshots(context, listOf(uri), isLiveMode)
+    }
+
+    fun importScreenshots(context: Context, uris: List<Uri>, isLiveMode: Boolean) {
+        if (uris.isEmpty()) return
+
         viewModelScope.launch {
             _isExtractingData.value = true
-            _statusMessage.value = "Képernyőkép elemzése AI látómodellel folyamatban..."
+            _statusMessage.value = if (uris.size > 1) {
+                "${uris.size} db képernyőkép beolvasása és szintetizálása AI látómodellel..."
+            } else {
+                "Képernyőkép elemzése AI látómodellel folyamatban..."
+            }
+
             try {
-                val pair = ImageUtils.uriToBase64Jpeg(context, uri)
-                if (pair == null) {
-                    _statusMessage.value = "Nem sikerült beolvasni a képet."
+                val images = mutableListOf<Pair<String, String>>()
+                for (uri in uris) {
+                    val pair = ImageUtils.uriToBase64Jpeg(context, uri)
+                    if (pair != null) {
+                        images.add(pair)
+                    }
+                }
+
+                if (images.isEmpty()) {
+                    _statusMessage.value = "Nem sikerült beolvasni a kiválasztott képeket."
                     return@launch
                 }
-                val (base64, mime) = pair
-                val data = geminiService.extractMatchDataFromImage(base64, mime, isLiveMode)
+
+                val data = geminiService.extractMatchDataFromMultipleImages(images, isLiveMode)
                 applyExtractedMatchData(data, isLiveMode)
-                _statusMessage.value = "Képernyőkép adatai sikeresen beillesztve: ${data.homeTeam ?: "Hazai"} vs ${data.awayTeam ?: "Vendég"}!"
+                _statusMessage.value = if (images.size > 1) {
+                    "${images.size} db képernyőkép adatai sikeresen egyesítve: ${data.homeTeam ?: "Hazai"} vs ${data.awayTeam ?: "Vendég"}!"
+                } else {
+                    "Képernyőkép adatai sikeresen beillesztve: ${data.homeTeam ?: "Hazai"} vs ${data.awayTeam ?: "Vendég"}!"
+                }
             } catch (e: Exception) {
-                _statusMessage.value = "Képernyőkép feldolgozási hiba: ${e.message}"
+                _statusMessage.value = "Képfeldolgozási hiba: ${e.message}"
             } finally {
                 _isExtractingData.value = false
             }

@@ -384,12 +384,51 @@ Stílusod: Precíz, tudományos, lényegretörő, analitikus és határozott. V�
         base64Image: String,
         mimeType: String = "image/jpeg",
         isLiveMode: Boolean
+    ): ExtractedMatchData {
+        return extractMatchDataFromMultipleImages(listOf(base64Image to mimeType), isLiveMode)
+    }
+
+    suspend fun extractMatchDataFromMultipleImages(
+        images: List<Pair<String, String>>, // List of Pair<base64Data, mimeType>
+        isLiveMode: Boolean
     ): ExtractedMatchData = withContext(Dispatchers.IO) {
-        if (!isKeyValid) {
+        if (images.isEmpty()) {
             return@withContext fallbackLocalExtraction("Képernyőkép", isLiveMode)
         }
 
-        val prompt = """
+        if (!isKeyValid) {
+            return@withContext fallbackLocalExtraction("${images.size} db képernyőkép", isLiveMode)
+        }
+
+        val prompt = if (images.size > 1) {
+            """
+Elemezd a csatolt ${images.size} darab labdarúgó-mérkőzés képernyőképet (pl. Flashscore, SofaScore, Bet365, FotMob, xG grafikonok, felállások, egymás elleni H2H vagy részletes statisztikák)!
+Kérlek vizsgáld meg az ÖSSZES képet, és szintetizáld az adatokat egyetlen részletes és pontos mérkőzés-modellé!
+Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen a következő struktúrával:
+{
+  "homeTeam": "Hazai csapat neve",
+  "awayTeam": "Vendég csapat neve",
+  "score": "0-0",
+  "minute": 15,
+  "shotsHome": 2,
+  "shotsAway": 1,
+  "shotsHomeOnTarget": 1,
+  "shotsAwayOnTarget": 0,
+  "dangerousAttacksHome": 8,
+  "dangerousAttacksAway": 5,
+  "cornersHome": 1,
+  "cornersAway": 0,
+  "possessionHome": 55,
+  "possessionAway": 45,
+  "context": "Bajnokság, hiányzók, időjárás, részletes taktikai kontextus az összes kép alapján összefoglalva",
+  "homeBaseXg": 1.65,
+  "awayBaseXg": 1.25,
+  "tacticalImpression": "részletes taktikai benyomás a több forrásból származó statisztikák, xG és felállások alapján"
+}
+Ha egy adat nem látható a képeken, becsüld meg reálisan vagy hagyj ésszerű alapértéket!
+""".trimIndent()
+        } else {
+            """
 Elemezd a csatolt labdarúgó-mérkőzés képernyőképet (Flashscore, SofaScore, Bet365, FotMob vagy közvetítés)!
 Nyerd ki a látható mérkőzésadatokat, statisztikákat és állást!
 Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen a következő struktúrával:
@@ -415,16 +454,20 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen a következő str
 }
 Ha egy adat nem látható a képen, becsüld meg reálisan vagy hagyj ésszerű alapértéket!
 """.trimIndent()
+        }
 
         try {
             val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
-            val inlineData = JSONObject()
-                .put("mimeType", mimeType)
-                .put("data", base64Image)
-
             val parts = JSONArray()
-                .put(JSONObject().put("text", prompt))
-                .put(JSONObject().put("inlineData", inlineData))
+            parts.put(JSONObject().put("text", prompt))
+
+            // Add all image parts
+            for ((base64, mime) in images) {
+                val inlineData = JSONObject()
+                    .put("mimeType", mime)
+                    .put("data", base64)
+                parts.put(JSONObject().put("inlineData", inlineData))
+            }
 
             val requestBody = JSONObject()
                 .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
@@ -439,8 +482,8 @@ Ha egy adat nem látható a képen, becsüld meg reálisan vagy hagyj ésszerű 
             val raw = response.body?.string() ?: ""
             parseJsonToExtractedMatchData(raw)
         } catch (e: Throwable) {
-            Log.e("GeminiService", "Image extraction failed", e)
-            fallbackLocalExtraction("Képernyőkép", isLiveMode)
+            Log.e("GeminiService", "Multi-image extraction failed", e)
+            fallbackLocalExtraction("${images.size} db Képernyőkép", isLiveMode)
         }
     }
 
