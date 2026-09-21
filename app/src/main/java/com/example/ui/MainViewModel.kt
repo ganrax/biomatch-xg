@@ -19,6 +19,7 @@ import com.example.data.model.PreMatchInput
 import com.example.data.storage.LocalTipStorageManager
 import com.example.data.update.AppUpdateManager
 import com.example.data.update.UpdateInfo
+import com.example.util.AnalysisDossierBuilder
 import com.example.util.ImageUtils
 import com.example.util.OcrMatchExtractor
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -350,7 +351,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 calculatedXg = analysis.calculatedXg,
                 dominantDirectionOrInterval = analysis.mostLikelyInterval,
                 summary = "🎯 Tipp: $concreteTip | Affinitás: ${analysis.bindingAffinityIndex}/10 | U2.5: ${String.format("%.1f", analysis.under25Prob * 100)}%",
-                fullReport = "1. Fázis:\n${analysis.phase1MolecularDocking}\n\n2. Fázis:\n${analysis.phase2MetabolicKinetics}\n\n3. Fázis:\n${analysis.phase3FormulaExplanation}\n\n4. Fázis:\n${analysis.phase4MonteCarloText}",
+                fullReport = AnalysisDossierBuilder.buildFullPreMatchDossier(_preMatchInput.value, analysis),
                 blackSwan = analysis.blackSwanFactor
             )
             val id = repository.saveAnalysis(entity)
@@ -371,7 +372,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 calculatedXg = analysis.calculated1hXg,
                 dominantDirectionOrInterval = analysis.dominantMarketDirection,
                 summary = "🎯 Tipp: $concreteTip | HT: ${analysis.mostLikelyHtScore} (Steril: ${if (analysis.isSterileState) "Igen" else "Nem"})",
-                fullReport = "1. Fázis:\n${analysis.phase1ReactionAndInhibition}\n\n2. Fázis:\n${analysis.phase2KineticFlux}\n\n3. Fázis:\n${analysis.phase3FormulaDetails}\n\n4. Fázis:\n${analysis.phase4MarketText}",
+                fullReport = AnalysisDossierBuilder.buildFullLiveHalfDossier(_liveHalfInput.value, analysis),
                 blackSwan = analysis.blackSwanFactor
             )
             val id = repository.saveAnalysis(entity)

@@ -73,6 +73,7 @@ import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.KineticEmerald
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.SurfaceCard
+import com.example.util.AnalysisDossierBuilder
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
@@ -679,31 +680,9 @@ fun PreMatchScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         onClick = {
-                            val isUnder = res.calculatedXg <= 2.45 || res.under25Prob >= 0.52
-                            val fullText = buildString {
-                                appendLine("═══════════════════════════════════════")
-                                appendLine("🔬 BIOMATCH xG TUDOMÁNYOS PREDIKCIÓ")
-                                appendLine("Mérkőzés: ${input.homeTeam} vs ${input.awayTeam}")
-                                appendLine("═══════════════════════════════════════")
-                                appendLine("🎯 FŐ AJÁNLÁS: ${if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else if (isUnder) "Under 2.5 gól" else "Over 2.5 gól"}")
-                                if (res.secondaryBetTip.isNotBlank()) {
-                                    appendLine("🛡️ BIZTONSÁGI PIAC: ${res.secondaryBetTip}")
-                                }
-                                appendLine("📊 Számított xG: ${String.format("%.2f", res.calculatedXg)}")
-                                appendLine("🎯 Legvalószínűbb tartomány: ${res.mostLikelyInterval}")
-                                appendLine("🧬 Kötési Affinitási Index: ${res.bindingAffinityIndex}/10")
-                                appendLine("📈 Valószínűségek: Over 2.5: ${(res.over25Prob * 100).toInt()}% | Under 2.5: ${(res.under25Prob * 100).toInt()}%")
-                                appendLine("\n1️⃣ FÁZIS - MOLEKULÁRIS DOKKOLÁS:\n${res.phase1MolecularDocking}")
-                                appendLine("\n2️⃣ FÁZIS - METABOLIKUS KINETIKA:\n${res.phase2MetabolicKinetics}")
-                                appendLine("\n3️⃣ FÁZIS - NEMLINEÁRIS GÓLKÉPLET:\n${res.phase3FormulaExplanation}")
-                                appendLine("\n4️⃣ FÁZIS - MONTE-CARLO PREDIKCIÓ:\n${res.phase4MonteCarloText}")
-                                if (res.blackSwanFactor.isNotBlank()) {
-                                    appendLine("\n⚠️ FEKETE HATTYÚ ANOMÁLIA:\n${res.blackSwanFactor}")
-                                }
-                                appendLine("═══════════════════════════════════════")
-                            }
-                            clipboardManager.setText(AnnotatedString(fullText))
-                            viewModel.showStatusMessage("Teljes elemzés kimásolva a vágólapra! 📋")
+                            val fullDossier = AnalysisDossierBuilder.buildFullPreMatchDossier(input, res)
+                            clipboardManager.setText(AnnotatedString(fullDossier))
+                            viewModel.showStatusMessage("Teljes döntési folyamat kimásolva (0. lépéstől a konklúzióig)! 📋")
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue.copy(alpha = 0.2f), contentColor = ElectricBlue),
                         shape = RoundedCornerShape(12.dp),
@@ -714,7 +693,7 @@ fun PreMatchScreen(
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("TELJES ELEMZÉS MÁSOLÁSA VÁGÓLAPRA", fontWeight = FontWeight.Bold)
+                        Text("TELJES DÖNTÉSI FOLYAMAT MÁSOLÁSA (0-5. LÉPÉS)", fontWeight = FontWeight.Bold)
                     }
 
                     Button(

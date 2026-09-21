@@ -608,26 +608,43 @@ fun HistoryScreen(
                     OutlinedButton(
                         onClick = {
                             val fullDetailText = buildString {
-                                appendLine("═══════════════════════════════════════")
-                                appendLine("📋 BIOMATCH ARCHÍV ELEMZÉS")
-                                appendLine("Mérkőzés: ${entity.homeTeam} vs. ${entity.awayTeam}")
-                                appendLine("Típus: ${if (entity.type == "PRE_MATCH") "Pre-Match" else "Élő 1. Félidő"}")
-                                appendLine("xG: ${String.format("%.2f", entity.calculatedXg)} | Irány: ${entity.dominantDirectionOrInterval}")
-                                if (!entity.actualScore.isNullOrBlank()) {
-                                    appendLine("Végeredmény: ${entity.actualScore} (${entity.tipStatus})")
+                                if (entity.fullReport.contains("0. LÉPÉS")) {
+                                    appendLine(entity.fullReport)
+                                    if (!entity.actualScore.isNullOrBlank()) {
+                                        appendLine()
+                                        appendLine("▶ 6. LÉPÉS: UTÓLAGOS KIÉRTÉKELÉS & AI ÖNKALIBRÁCIÓ")
+                                        appendLine("───────────────────────────────────────────────────────────────────────────")
+                                        appendLine("• Rögzített végeredmény: ${entity.actualScore} (Tipp státusz: ${entity.tipStatus})")
+                                        if (!entity.conclusion.isNullOrBlank()) {
+                                            appendLine("• AI Szakértői Konklúzió:\n${entity.conclusion}")
+                                        }
+                                        if (!entity.learnedInsight.isNullOrBlank()) {
+                                            appendLine("• Önképzési / Tanulási Paraméterek:\n${entity.learnedInsight}")
+                                        }
+                                        appendLine("═══════════════════════════════════════════════════════════════════════════")
+                                    }
+                                } else {
+                                    appendLine("═══════════════════════════════════════")
+                                    appendLine("📋 BIOMATCH ARCHÍV ELEMZÉS")
+                                    appendLine("Mérkőzés: ${entity.homeTeam} vs. ${entity.awayTeam}")
+                                    appendLine("Típus: ${if (entity.type == "PRE_MATCH") "Pre-Match" else "Élő 1. Félidő"}")
+                                    appendLine("xG: ${String.format("%.2f", entity.calculatedXg)} | Irány: ${entity.dominantDirectionOrInterval}")
+                                    if (!entity.actualScore.isNullOrBlank()) {
+                                        appendLine("Végeredmény: ${entity.actualScore} (${entity.tipStatus})")
+                                    }
+                                    if (!entity.conclusion.isNullOrBlank()) {
+                                        appendLine("\nAI KONKLÚZIÓ:\n${entity.conclusion}")
+                                    }
+                                    if (!entity.learnedInsight.isNullOrBlank()) {
+                                        appendLine("\nTANULT PARAMÉTEREK:\n${entity.learnedInsight}")
+                                    }
+                                    appendLine("\nFEKETE HATTYÚ:\n${entity.blackSwan}")
+                                    appendLine("\nTELJES FÁZISANALÍZIS:\n${entity.fullReport}")
+                                    appendLine("═══════════════════════════════════════")
                                 }
-                                if (!entity.conclusion.isNullOrBlank()) {
-                                    appendLine("\nAI KONKLÚZIÓ:\n${entity.conclusion}")
-                                }
-                                if (!entity.learnedInsight.isNullOrBlank()) {
-                                    appendLine("\nTANULT PARAMÉTEREK:\n${entity.learnedInsight}")
-                                }
-                                appendLine("\nFEKETE HATTYÚ:\n${entity.blackSwan}")
-                                appendLine("\nTELJES FÁZISANALÍZIS:\n${entity.fullReport}")
-                                appendLine("═══════════════════════════════════════")
                             }
                             clipboardManager.setText(AnnotatedString(fullDetailText))
-                            viewModel.showStatusMessage("Teljes archív elemzés kimásolva! 📋")
+                            viewModel.showStatusMessage("Teljes döntési dosszié kimásolva! 📋")
                         },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonCyan)
                     ) {

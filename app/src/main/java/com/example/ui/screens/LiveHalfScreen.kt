@@ -76,6 +76,7 @@ import com.example.ui.theme.KineticEmerald
 import com.example.ui.theme.KineticEmeraldGlow
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.SurfaceCard
+import com.example.util.AnalysisDossierBuilder
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -759,30 +760,9 @@ fun LiveHalfScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         onClick = {
-                            val fullLiveText = buildString {
-                                appendLine("═══════════════════════════════════════")
-                                appendLine("⚡ BIOMATCH xG ÉLŐ 1. FÉLIDŐS ELEMZÉS")
-                                appendLine("Mérkőzés: ${input.homeTeam} vs ${input.awayTeam} (15' Állás: ${input.currentScore})")
-                                appendLine("═══════════════════════════════════════")
-                                appendLine("🎯 FŐ AJÁNLÁS: ${if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else res.mostValuableMarket}")
-                                if (res.secondaryBetTip.isNotBlank()) {
-                                    appendLine("🛡️ BIZTONSÁGI PIAC: ${res.secondaryBetTip}")
-                                }
-                                appendLine("📊 1H Számított xG: ${String.format("%.2f", res.calculated1hXg)}")
-                                appendLine("⚡ Domináns irány: ${res.dominantMarketDirection}")
-                                appendLine("🛑 Sterilitás állapota: ${if (res.isSterileState) "STERIL / BLOKKOLT MEZŐNYJÁTÉK" else "AKTÍV / KATALIZÁLT JÁTÉK"}")
-                                appendLine("📈 1H Under 0.5: ${(res.under05Prob * 100).toInt()}% | 1H Under 1.5: ${(res.under15Prob * 100).toInt()}%")
-                                appendLine("\n1️⃣ FÁZIS - REAKCIÓSEBESSÉG & INHIBÍCIÓ:\n${res.phase1ReactionAndInhibition}")
-                                appendLine("\n2️⃣ FÁZIS - KINETIKAI FLUXUS & RITMUS-DEGRADÁCIÓ:\n${res.phase2KineticFlux}")
-                                appendLine("\n3️⃣ FÁZIS - NEMLINEÁRIS 1H GÓLKÉPLET:\n${res.phase3FormulaDetails}")
-                                appendLine("\n4️⃣ FÁZIS - MONTE-CARLO 1H & PIACI PREFERENCIA:\n${res.phase4MarketText}")
-                                if (res.blackSwanFactor.isNotBlank()) {
-                                    appendLine("\n⚠️ GÁTLÁSTÖRŐ ANOMÁLIA:\n${res.blackSwanFactor}")
-                                }
-                                appendLine("═══════════════════════════════════════")
-                            }
-                            clipboardManager.setText(AnnotatedString(fullLiveText))
-                            viewModel.showStatusMessage("Teljes élő elemzés kimásolva a vágólapra! 📋")
+                            val fullLiveDossier = AnalysisDossierBuilder.buildFullLiveHalfDossier(input, res)
+                            clipboardManager.setText(AnnotatedString(fullLiveDossier))
+                            viewModel.showStatusMessage("Teljes élő döntési folyamat kimásolva (0. lépéstől a konklúzióig)! 📋")
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = KineticEmerald.copy(alpha = 0.2f), contentColor = KineticEmerald),
                         shape = RoundedCornerShape(12.dp),
@@ -793,7 +773,7 @@ fun LiveHalfScreen(
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("TELJES ÉLŐ ELEMZÉS MÁSOLÁSA VÁGÓLAPRA", fontWeight = FontWeight.Bold)
+                        Text("TELJES DÖNTÉSI FOLYAMAT MÁSOLÁSA (0-5. LÉPÉS)", fontWeight = FontWeight.Bold)
                     }
 
                     Button(
