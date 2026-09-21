@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.HourglassEmpty
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SportsSoccer
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -103,6 +105,8 @@ fun HistoryScreen(
     var selectedFilter by remember { mutableStateOf("ALL") }
     var selectedEntityForDetails by remember { mutableStateOf<SavedAnalysisEntity?>(null) }
     var entityToResolve by remember { mutableStateOf<SavedAnalysisEntity?>(null) }
+    var entityToEdit by remember { mutableStateOf<SavedAnalysisEntity?>(null) }
+    var entityToDelete by remember { mutableStateOf<SavedAnalysisEntity?>(null) }
 
     val filteredList = when (selectedFilter) {
         "PENDING" -> savedList.filter { !it.isResolved }
@@ -180,21 +184,40 @@ fun HistoryScreen(
                             )
                         }
 
-                        OutlinedButton(
-                            onClick = { viewModel.exportAllTipsToLocalFolder() },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Fájlok frissítése",
-                                style = MaterialTheme.typography.labelSmall
-                            )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(
+                                onClick = { viewModel.syncTipsFromLocalFolder() },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Sync,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Beolvasás",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = { viewModel.exportAllTipsToLocalFolder() },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Exportálás",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
                         }
                     }
 
@@ -398,6 +421,18 @@ fun HistoryScreen(
                                 }
 
                                 IconButton(
+                                    onClick = { entityToEdit = item },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Szerkesztés",
+                                        tint = ElectricBlue,
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
+
+                                IconButton(
                                     onClick = {
                                         val cardSummary = buildString {
                                             appendLine("📋 BioMatch Mentett Elemzés: ${item.homeTeam} vs. ${item.awayTeam}")
@@ -424,7 +459,7 @@ fun HistoryScreen(
                                 }
 
                                 IconButton(
-                                    onClick = { viewModel.deleteSavedAnalysis(item.id) },
+                                    onClick = { entityToDelete = item },
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
@@ -599,12 +634,69 @@ fun HistoryScreen(
         )
     }
 
+    // --- Dialog to Edit Tip Details ---
+    entityToEdit?.let { entity ->
+        EditTipDialog(
+            entity = entity,
+            onDismiss = { entityToEdit = null },
+            onSave = { home, away, direction, score, status, conclusion, learned ->
+                viewModel.updateSavedAnalysisDetails(
+                    entity = entity,
+                    homeTeam = home,
+                    awayTeam = away,
+                    dominantDirection = direction,
+                    actualScore = score,
+                    tipStatus = status,
+                    conclusion = conclusion,
+                    learnedInsight = learned
+                )
+                entityToEdit = null
+            }
+        )
+    }
+
+    // --- Dialog to Confirm Deletion ---
+    entityToDelete?.let { entity ->
+        DeleteConfirmDialog(
+            entity = entity,
+            onDismiss = { entityToDelete = null },
+            onConfirm = {
+                viewModel.deleteSavedAnalysis(entity.id)
+                entityToDelete = null
+            }
+        )
+    }
+
     // --- Full Detail Dialog ---
     selectedEntityForDetails?.let { entity ->
         AlertDialog(
             onDismissRequest = { selectedEntityForDetails = null },
             confirmButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            entityToEdit = entity
+                            selectedEntityForDetails = null
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ElectricBlue)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Szerkesztés")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            entityToDelete = entity
+                            selectedEntityForDetails = null
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = BlackSwanRose)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Törlés")
+                    }
+
                     OutlinedButton(
                         onClick = {
                             val fullDetailText = buildString {
@@ -905,6 +997,263 @@ fun ResolveTipDialog(
                 onClick = onDismiss,
                 enabled = !isResolving
             ) {
+                Text("Mégse", color = TextMuted)
+            }
+        },
+        containerColor = SurfaceCard,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+fun EditTipDialog(
+    entity: SavedAnalysisEntity,
+    onDismiss: () -> Unit,
+    onSave: (
+        homeTeam: String,
+        awayTeam: String,
+        dominantDirection: String,
+        actualScore: String?,
+        tipStatus: String,
+        conclusion: String?,
+        learnedInsight: String?
+    ) -> Unit
+) {
+    var homeTeam by remember { mutableStateOf(entity.homeTeam) }
+    var awayTeam by remember { mutableStateOf(entity.awayTeam) }
+    var dominantDirection by remember { mutableStateOf(entity.dominantDirectionOrInterval) }
+    var actualScore by remember { mutableStateOf(entity.actualScore ?: "") }
+    var tipStatus by remember { mutableStateOf(entity.tipStatus) }
+    var conclusion by remember { mutableStateOf(entity.conclusion ?: "") }
+    var learnedInsight by remember { mutableStateOf(entity.learnedInsight ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Edit, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Tipp Szerkesztése",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "ID: #${entity.id} | ${if (entity.type == "PRE_MATCH") "Pre-Match" else "Élő 1H"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                OutlinedTextField(
+                    value = homeTeam,
+                    onValueChange = { homeTeam = it },
+                    label = { Text("Hazai csapat") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+
+                OutlinedTextField(
+                    value = awayTeam,
+                    onValueChange = { awayTeam = it },
+                    label = { Text("Vendég csapat") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+
+                OutlinedTextField(
+                    value = dominantDirection,
+                    onValueChange = { dominantDirection = it },
+                    label = { Text("Fő Ajánlás / Piac / Irány") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+
+                OutlinedTextField(
+                    value = actualScore,
+                    onValueChange = { actualScore = it },
+                    label = { Text("Tényleges eredmény (pl. 2-1)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+
+                Text(
+                    text = "Kimenetel / Validáció Státusz:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("PENDING" to "Függőben", "WON" to "NYERT", "LOST" to "VESZTETT").forEach { (statusKey, statusLabel) ->
+                        FilterChip(
+                            selected = (tipStatus == statusKey),
+                            onClick = { tipStatus = statusKey },
+                            label = { Text(statusLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = when (statusKey) {
+                                    "WON" -> KineticEmerald
+                                    "LOST" -> BlackSwanRose
+                                    else -> AnomalyAmber
+                                },
+                                selectedLabelColor = DeepVoid
+                            )
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = conclusion,
+                    onValueChange = { conclusion = it },
+                    label = { Text("AI Retrospektív Konklúzió") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+
+                OutlinedTextField(
+                    value = learnedInsight,
+                    onValueChange = { learnedInsight = it },
+                    label = { Text("Tanulási Paraméterek / Modell Insight") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        homeTeam.trim(),
+                        awayTeam.trim(),
+                        dominantDirection.trim(),
+                        actualScore.trim().ifEmpty { null },
+                        tipStatus,
+                        conclusion.trim().ifEmpty { null },
+                        learnedInsight.trim().ifEmpty { null }
+                    )
+                },
+                enabled = homeTeam.isNotBlank() && awayTeam.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DeepVoid)
+            ) {
+                Text("Mentés", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Mégse", color = TextMuted)
+            }
+        },
+        containerColor = SurfaceCard,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+fun DeleteConfirmDialog(
+    entity: SavedAnalysisEntity,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Delete, contentDescription = null, tint = BlackSwanRose, modifier = Modifier.size(22.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Tipp Törlése",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Biztosan törölni szeretnéd a következő mentett elemzést?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${entity.homeTeam} vs. ${entity.awayTeam}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = NeonCyan,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Ajánlás: ${entity.dominantDirectionOrInterval}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Figyelem: A tétel az adatbázisból és a helyi fájlmappából (.txt / .json) is véglegesen eltávolításra kerül.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BlackSwanRose
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(containerColor = BlackSwanRose, contentColor = DeepVoid)
+            ) {
+                Text("Végleges törlés", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
                 Text("Mégse", color = TextMuted)
             }
         },

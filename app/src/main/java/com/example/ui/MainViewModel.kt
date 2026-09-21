@@ -385,7 +385,54 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteSavedAnalysis(id: Long) {
         viewModelScope.launch {
             repository.deleteById(id)
-            _statusMessage.value = "Elemzés törölve."
+            LocalTipStorageManager.deleteTipFromLocalFolder(getApplication(), id)
+            _statusMessage.value = "Elemzés törölve az adatbázisból és a helyi mappából."
+        }
+    }
+
+    fun updateSavedAnalysisDetails(
+        entity: SavedAnalysisEntity,
+        homeTeam: String,
+        awayTeam: String,
+        dominantDirection: String,
+        actualScore: String?,
+        tipStatus: String,
+        conclusion: String?,
+        learnedInsight: String?
+    ) {
+        viewModelScope.launch {
+            val scoreClean = actualScore?.trim()?.ifBlank { null }
+            val isResolved = tipStatus == "WON" || tipStatus == "LOST" || tipStatus == "VOID" || scoreClean != null
+            val updated = entity.copy(
+                homeTeam = homeTeam.trim(),
+                awayTeam = awayTeam.trim(),
+                dominantDirectionOrInterval = dominantDirection.trim(),
+                actualScore = scoreClean,
+                tipStatus = tipStatus.trim().ifBlank { "PENDING" },
+                conclusion = conclusion?.trim()?.ifBlank { null },
+                learnedInsight = learnedInsight?.trim()?.ifBlank { null },
+                isResolved = isResolved
+            )
+            repository.updateAnalysis(updated)
+            LocalTipStorageManager.saveTipToLocalFolder(getApplication(), updated)
+            _statusMessage.value = "Tipp adatai sikeresen frissítve (DB & Helyi mappa)!"
+        }
+    }
+
+    fun syncTipsFromLocalFolder() {
+        viewModelScope.launch {
+            try {
+                val context = getApplication<Application>()
+                val localTips = LocalTipStorageManager.loadTipsFromLocalFolder(context)
+                var importedCount = 0
+                for (tip in localTips) {
+                    repository.saveAnalysis(tip)
+                    importedCount++
+                }
+                _statusMessage.value = "$importedCount db tipp beolvasva és szinkronizálva a helyi mappából!"
+            } catch (e: Exception) {
+                _statusMessage.value = "Hiba a helyi tippek beolvasásakor: ${e.message}"
+            }
         }
     }
 

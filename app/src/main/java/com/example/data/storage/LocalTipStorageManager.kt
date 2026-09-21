@@ -89,6 +89,93 @@ object LocalTipStorageManager {
             file
         }
 
+    suspend fun deleteTipFromLocalFolder(context: Context, entityId: Long): Boolean =
+        withContext(Dispatchers.IO) {
+            val dir = getTipsDirectory(context)
+            var deletedAny = false
+            dir.listFiles()?.forEach { file ->
+                if (file.name.startsWith("tipp_${entityId}_")) {
+                    if (file.delete()) {
+                        deletedAny = true
+                    }
+                }
+            }
+            deletedAny
+        }
+
+    suspend fun loadTipsFromLocalFolder(context: Context): List<SavedAnalysisEntity> =
+        withContext(Dispatchers.IO) {
+            val dir = getTipsDirectory(context)
+            val jsonFiles = dir.listFiles { f -> f.extension == "json" } ?: return@withContext emptyList()
+            val result = mutableListOf<SavedAnalysisEntity>()
+
+            for (file in jsonFiles) {
+                try {
+                    val raw = file.readText()
+                    val obj = JSONObject(raw)
+                    val id = obj.optLong("id", System.currentTimeMillis())
+                    val type = obj.optString("type", "PRE_MATCH")
+                    val homeTeam = obj.optString("homeTeam", "")
+                    val awayTeam = obj.optString("awayTeam", "")
+                    val calculatedXg = obj.optDouble("calculatedXg", 0.0)
+                    val predictedDirection = obj.optString("predictedDirection", "")
+                    val tipStatus = obj.optString("tipStatus", "PENDING")
+                    val actualScore = obj.optString("actualScore", "").takeIf { it.isNotBlank() }
+                    val conclusion = obj.optString("conclusion", "").takeIf { it.isNotBlank() }
+                    val learnedInsight = obj.optString("learnedInsight", "").takeIf { it.isNotBlank() }
+                    val timestamp = obj.optLong("timestamp", file.lastModified())
+                    val isResolved = tipStatus == "WON" || tipStatus == "LOST" || tipStatus == "VOID" || !actualScore.isNullOrBlank()
+
+                    // Also try to read full report and blackswan from accompanying txt file if available
+                    val txtFileName = file.name.replace(".json", ".txt")
+                    val txtFile = File(dir, txtFileName)
+                    var fullReport = "Helyi fájlból betöltött elemzés (${file.name})"
+                    var blackSwan = "Mentett fájl alapján."
+                    var summary = "$homeTeam vs $awayTeam: $predictedDirection"
+
+                    if (txtFile.exists()) {
+                        val txtContent = txtFile.readText()
+                        fullReport = txtContent
+                        if (txtContent.contains("Fekete Hattyú Kockázati Tényező:")) {
+                            blackSwan = txtContent.substringAfter("Fekete Hattyú Kockázati Tényező:")
+                                .substringBefore("=================================================================")
+                                .trim()
+                        }
+                        if (txtContent.contains("Összegzés: ")) {
+                            summary = txtContent.substringAfter("Összegzés: ")
+                                .substringBefore("-----------------------------------------------------------------")
+                                .trim()
+                        }
+                    }
+
+                    if (homeTeam.isNotBlank() && awayTeam.isNotBlank()) {
+                        result.add(
+                            SavedAnalysisEntity(
+                                id = id,
+                                type = type,
+                                homeTeam = homeTeam,
+                                awayTeam = awayTeam,
+                                calculatedXg = calculatedXg,
+                                dominantDirectionOrInterval = predictedDirection,
+                                summary = summary,
+                                fullReport = fullReport,
+                                blackSwan = blackSwan,
+                                actualScore = actualScore,
+                                tipStatus = tipStatus,
+                                conclusion = conclusion,
+                                learnedInsight = learnedInsight,
+                                isResolved = isResolved,
+                                timestamp = timestamp
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    // Ignore corrupted file
+                }
+            }
+            result.sortedByDescending { it.timestamp }
+        }
+
     fun getLocalTipsCount(context: Context): Int {
         val dir = getTipsDirectory(context)
         return dir.listFiles { f -> f.extension == "txt" }?.size ?: 0
