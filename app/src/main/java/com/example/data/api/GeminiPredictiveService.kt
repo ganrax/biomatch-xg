@@ -11,6 +11,7 @@ import com.example.data.model.LiveHalfAnalysis
 import com.example.data.model.LiveHalfInput
 import com.example.data.model.PreMatchAnalysis
 import com.example.data.model.PreMatchInput
+import com.example.util.OcrMatchExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -416,11 +417,11 @@ SZIGORÚ UTASÍTÁS A LABDARÚGÓ-MÉRKŐZÉS ADATAINAK ÉS CSAPATNEVEINEK KIOLV
 Elemezd a csatolt ${images.size} darab képernyőképet (Flashscore, SofaScore, Bet365, FotMob, Eredmények, stb.)!
 
 🎯 KRITIKUS SZABÁLYOK A CSAPATNEVEKRE:
-1. "homeTeam": A HAZAI csapat (felső sorban vagy bal oldalon lévő futballklub/válogatott) pontos, tiszta neve (pl. "Real Madrid", "Arsenal", "FC Barcelona", "Liverpool", "Ferencváros", "Bayern München", "Inter", "PSG", "Brest").
-2. "awayTeam": A VENDÉG csapat (alsó sorban vagy jobb oldalon lévő futballklub/válogatott) pontos, tiszta neve.
-3. SZIGORÚAN TILOS a bajnokság nevét (pl. "Premier League", "LaLiga", "Bajnokok Ligája", "Serie A", "NB I", "Bundesliga", "Ligue 1", "Copa del Rey", "FA Kupa") vagy fordulóját csapatnévnek megadni!
-4. SZIGORÚAN TILOS felületi gombokat vagy feliratokat (pl. "Összefoglaló", "Statisztikák", "Felállások", "Tabella", "Odds", "H2H", "Hazai", "Vendég", "Döntetlen", "Élő", "Vége") csapatnévnek megadni!
-5. Ha 3 betűs rövidítés látható (pl. "MCI", "RMA", "FCB", "ATM", "CHE", "ARS"), add meg a teljes elismert klubnevet (pl. "Manchester City", "Real Madrid", "Barcelona", "Atlético Madrid", "Chelsea", "Arsenal").
+1. "homeTeam": A HAZAI csapat (felső kártya bal oldalán, pl. "Las Palmas", "Real Madrid", "Arsenal", "FC Barcelona", "Liverpool", "Ferencváros") pontos neve.
+2. "awayTeam": A VENDÉG csapat (felső kártya jobb oldalán, pl. "Burgos", "Bayern München", "Inter", "PSG", "Brest") pontos neve.
+3. SZIGORÚAN TILOS a felületi szakaszcímeket (pl. "Match Timeline", "Timeline", "Match Timer", "Match Events", "Statistics", "Corner Kicks", "Dangerous Attack", "Attack", "Shots", "Fouls", "Detail", "Lineups", "Odds", "H2H", "Chat") csapatnévnek megadni!
+4. SZIGORÚAN TILOS a bajnokság nevét (pl. "Spanish La Liga 2", "Premier League", "LaLiga", "Bajnokok Ligája", "Serie A", "NB I", "Bundesliga") csapatnévnek megadni!
+5. Ha 3 betűs rövidítés látható (pl. "MCI", "RMA", "FCB", "ATM", "CHE", "ARS"), add meg a teljes elismert klubnevet.
 
 📊 MECCSSTATISZTIKÁK:
 - "score": aktuális állás (pl. "0-0", "1-0", "2-1").
@@ -548,24 +549,8 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen:
 
     private fun cleanTeamName(name: String?): String? {
         if (name.isNullOrBlank()) return null
-        var cleaned = name.trim()
-            .replace(Regex("^(Hazai|Vendég|Home|Away|Team\\s*[12]|1|2)\\s*[:–-]?\\s*", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("\\s*\\((H|A|Hazai|Vendég)\\)$", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("^(vs|–|-)\\s*"), "")
-            .replace(Regex("\\s*(vs|–|-)$"), "")
-            .trim()
-
-        // Filter out accidental league / UI label captures
-        val forbidden = listOf(
-            "premier league", "laliga", "la liga", "serie a", "bundesliga", "ligue 1",
-            "bajnokok ligája", "champions league", "europa league", "konferencia liga",
-            "nb i", "nb 1", "összefoglaló", "statisztika", "statisztikák", "felállások",
-            "tabella", "odds", "h2h", "eredmények", "flashscore", "sofascore"
-        )
-        if (forbidden.any { cleaned.equals(it, ignoreCase = true) }) {
-            return null
-        }
-        return cleaned.takeIf { it.isNotBlank() }
+        val cleaned = OcrMatchExtractor.cleanCandidateTeam(name)
+        return if (OcrMatchExtractor.isValidTeam(cleaned)) cleaned else null
     }
 
     private fun parseJsonToExtractedMatchData(responseRaw: String): ExtractedMatchData {
