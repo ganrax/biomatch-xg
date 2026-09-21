@@ -24,11 +24,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
@@ -62,8 +64,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -94,6 +98,7 @@ fun HistoryScreen(
     val context = LocalContext.current
     val savedList by viewModel.savedAnalyses.collectAsState()
     val isResolving by viewModel.isResolvingTip.collectAsState()
+    val clipboardManager = LocalClipboardManager.current
 
     var selectedFilter by remember { mutableStateOf("ALL") }
     var selectedEntityForDetails by remember { mutableStateOf<SavedAnalysisEntity?>(null) }
@@ -393,6 +398,32 @@ fun HistoryScreen(
                                 }
 
                                 IconButton(
+                                    onClick = {
+                                        val cardSummary = buildString {
+                                            appendLine("📋 BioMatch Mentett Elemzés: ${item.homeTeam} vs. ${item.awayTeam}")
+                                            appendLine("Típus: $typeLabel ($formattedDate)")
+                                            appendLine("Prediktált xG: ${String.format("%.2f", item.calculatedXg)} | ${item.dominantDirectionOrInterval}")
+                                            if (!item.actualScore.isNullOrBlank()) {
+                                                appendLine("Végeredmény: ${item.actualScore} ($statusText)")
+                                            }
+                                            if (!item.conclusion.isNullOrBlank()) {
+                                                appendLine("Konklúzió: ${item.conclusion}")
+                                            }
+                                        }
+                                        clipboardManager.setText(AnnotatedString(cardSummary))
+                                        viewModel.showStatusMessage("Archív tétel kimásolva a vágólapra! 📋")
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Tipp másolása",
+                                        tint = NeonCyan,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                IconButton(
                                     onClick = { viewModel.deleteSavedAnalysis(item.id) },
                                     modifier = Modifier.size(32.dp)
                                 ) {
@@ -573,11 +604,44 @@ fun HistoryScreen(
         AlertDialog(
             onDismissRequest = { selectedEntityForDetails = null },
             confirmButton = {
-                Button(
-                    onClick = { selectedEntityForDetails = null },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DeepVoid)
-                ) {
-                    Text("Bezárás")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            val fullDetailText = buildString {
+                                appendLine("═══════════════════════════════════════")
+                                appendLine("📋 BIOMATCH ARCHÍV ELEMZÉS")
+                                appendLine("Mérkőzés: ${entity.homeTeam} vs. ${entity.awayTeam}")
+                                appendLine("Típus: ${if (entity.type == "PRE_MATCH") "Pre-Match" else "Élő 1. Félidő"}")
+                                appendLine("xG: ${String.format("%.2f", entity.calculatedXg)} | Irány: ${entity.dominantDirectionOrInterval}")
+                                if (!entity.actualScore.isNullOrBlank()) {
+                                    appendLine("Végeredmény: ${entity.actualScore} (${entity.tipStatus})")
+                                }
+                                if (!entity.conclusion.isNullOrBlank()) {
+                                    appendLine("\nAI KONKLÚZIÓ:\n${entity.conclusion}")
+                                }
+                                if (!entity.learnedInsight.isNullOrBlank()) {
+                                    appendLine("\nTANULT PARAMÉTEREK:\n${entity.learnedInsight}")
+                                }
+                                appendLine("\nFEKETE HATTYÚ:\n${entity.blackSwan}")
+                                appendLine("\nTELJES FÁZISANALÍZIS:\n${entity.fullReport}")
+                                appendLine("═══════════════════════════════════════")
+                            }
+                            clipboardManager.setText(AnnotatedString(fullDetailText))
+                            viewModel.showStatusMessage("Teljes archív elemzés kimásolva! 📋")
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonCyan)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Másolás")
+                    }
+
+                    Button(
+                        onClick = { selectedEntityForDetails = null },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DeepVoid)
+                    ) {
+                        Text("Bezárás")
+                    }
                 }
             },
             title = {
@@ -589,88 +653,90 @@ fun HistoryScreen(
                 )
             },
             text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        text = "Típus: ${if (entity.type == "PRE_MATCH") "Pre-Match Elemzés" else "Élő 1. Félidős Elemzés"}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = NeonCyan
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "xG: ${String.format("%.2f", entity.calculatedXg)} | ${entity.dominantDirectionOrInterval}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-
-                    if (!entity.actualScore.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                SelectionContainer {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
                         Text(
-                            text = "Végeredmény: ${entity.actualScore} (Státusz: ${entity.tipStatus})",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (entity.tipStatus == "WON") KineticEmerald else BlackSwanRose
-                        )
-                    }
-
-                    if (!entity.conclusion.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = "AI UTÓLAGOS KONKLÚZIÓ:",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
+                            text = "Típus: ${if (entity.type == "PRE_MATCH") "Pre-Match Elemzés" else "Élő 1. Félidős Elemzés"}",
+                            style = MaterialTheme.typography.labelMedium,
                             color = NeonCyan
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = entity.conclusion,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextPrimary,
-                            lineHeight = 19.sp
+                            text = "xG: ${String.format("%.2f", entity.calculatedXg)} | ${entity.dominantDirectionOrInterval}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
                         )
-                    }
 
-                    if (!entity.learnedInsight.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        if (!entity.actualScore.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Végeredmény: ${entity.actualScore} (Státusz: ${entity.tipStatus})",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (entity.tipStatus == "WON") KineticEmerald else BlackSwanRose
+                            )
+                        }
+
+                        if (!entity.conclusion.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "AI UTÓLAGOS KONKLÚZIÓ:",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonCyan
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = entity.conclusion,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextPrimary,
+                                lineHeight = 19.sp
+                            )
+                        }
+
+                        if (!entity.learnedInsight.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "ÖNKALIBRÁCIÓ & TANULT PARAMÉTEREK:",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = AnomalyAmber
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = entity.learnedInsight,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary,
+                                lineHeight = 19.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "ÖNKALIBRÁCIÓ & TANULT PARAMÉTEREK:",
+                            text = "Fekete Hattyú Anomália:\n${entity.blackSwan}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = BlackSwanRose
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "TELJES FÁZISANALÍZIS:",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = AnomalyAmber
+                            color = NeonCyan
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = entity.learnedInsight,
+                            text = entity.fullReport,
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary,
-                            lineHeight = 19.sp
+                            lineHeight = 20.sp
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Fekete Hattyú Anomália:\n${entity.blackSwan}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = BlackSwanRose
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "TELJES FÁZISANALÍZIS:",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = NeonCyan
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = entity.fullReport,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                        lineHeight = 20.sp
-                    )
                 }
             },
             containerColor = SurfaceCard,

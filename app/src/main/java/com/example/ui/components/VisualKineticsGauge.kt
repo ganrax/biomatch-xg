@@ -17,9 +17,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +36,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -290,8 +296,11 @@ fun SterilityIndicatorGauge(
 @Composable
 fun BlackSwanAlertCard(
     anomalyText: String,
+    onCopied: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val clipboardManager = LocalClipboardManager.current
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -321,19 +330,41 @@ fun BlackSwanAlertCard(
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "„FEKETE HATTYÚ” ANOMÁLIA-FAKTOR",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = BlackSwanRose,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.1.sp
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "„FEKETE HATTYÚ” ANOMÁLIA-FAKTOR",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = BlackSwanRose,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.1.sp
+                    )
+                    IconButton(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString("⚠️ „FEKETE HATTYÚ” ANOMÁLIA-FAKTOR:\n$anomalyText"))
+                            onCopied?.invoke()
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = BlackSwanRose),
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Anomália másolása",
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = anomalyText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFFFD1DC)
-                )
+                SelectionContainer {
+                    Text(
+                        text = anomalyText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFFFD1DC)
+                    )
+                }
             }
         }
     }

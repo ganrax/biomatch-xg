@@ -126,6 +126,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _statusMessage.value = null
     }
 
+    fun showStatusMessage(msg: String) {
+        _statusMessage.value = msg
+    }
+
     // --- Pre-Match Updates & Analysis ---
     fun updatePreMatchInput(transform: (PreMatchInput) -> PreMatchInput) {
         _preMatchInput.value = transform(_preMatchInput.value)

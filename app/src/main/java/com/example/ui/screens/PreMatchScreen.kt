@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Science
@@ -30,6 +32,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -46,7 +50,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -80,6 +86,7 @@ fun PreMatchScreen(
     val input by viewModel.preMatchInput.collectAsState()
     val analysis by viewModel.preMatchAnalysis.collectAsState()
     val isLoading by viewModel.isPreMatchLoading.collectAsState()
+    val clipboardManager = LocalClipboardManager.current
 
     var showAdvancedParams by remember { mutableStateOf(false) }
 
@@ -422,19 +429,53 @@ fun PreMatchScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // PRIMARY CONCRETE BET TIP
-                        Text(
-                            text = "🎯 KONKRÉT FOGADÁSI TIPP:",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else "Mérkőzés ${if (isUnder) "Kevesebb mint 2.5 gól (Under 2.5)" else "Több mint 2.5 gól (Over 2.5)"}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🎯 KONKRÉT FOGADÁSI TIPP:",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                            IconButton(
+                                onClick = {
+                                    val tipText = buildString {
+                                        appendLine("🎯 BioMatch xG Pre-Match Tipp: ${input.homeTeam} vs ${input.awayTeam}")
+                                        appendLine("📌 Fő tipp: ${if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else (if (isUnder) "Under 2.5 gól" else "Over 2.5 gól")}")
+                                        if (res.secondaryBetTip.isNotBlank()) {
+                                            appendLine("🛡️ Másodlagos piac: ${res.secondaryBetTip}")
+                                        }
+                                        appendLine("📊 Várható xG: ${String.format("%.2f", res.calculatedXg)} | Intervallum: ${res.mostLikelyInterval}")
+                                        appendLine("📈 Over 2.5: ${(res.over25Prob * 100).toInt()}% | Under 2.5: ${(res.under25Prob * 100).toInt()}%")
+                                        if (res.blackSwanFactor.isNotBlank()) {
+                                            appendLine("⚠️ Fekete Hattyú: ${res.blackSwanFactor}")
+                                        }
+                                    }
+                                    clipboardManager.setText(AnnotatedString(tipText))
+                                    viewModel.showStatusMessage("Tipp kimásolva a vágólapra! 📋")
+                                },
+                                colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White),
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Tipp másolása",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        SelectionContainer {
+                            Text(
+                                text = if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else "Mérkőzés ${if (isUnder) "Kevesebb mint 2.5 gól (Under 2.5)" else "Több mint 2.5 gól (Over 2.5)"}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -455,19 +496,21 @@ fun PreMatchScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = "🛡️ MÁSODLAGOS / BIZTONSÁGI PIAC:",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = bannerColor
                                         )
-                                        Text(
-                                            text = res.secondaryBetTip,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Medium,
-                                            color = TextPrimary
-                                        )
+                                        SelectionContainer {
+                                            Text(
+                                                text = res.secondaryBetTip,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium,
+                                                color = TextPrimary
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -570,7 +613,10 @@ fun PreMatchScreen(
 
             // Black Swan Alert
             item {
-                BlackSwanAlertCard(anomalyText = res.blackSwanFactor)
+                BlackSwanAlertCard(
+                    anomalyText = res.blackSwanFactor,
+                    onCopied = { viewModel.showStatusMessage("Fekete Hattyú leírás kimásolva! 📋") }
+                )
             }
 
             // The 4 Core Phases
@@ -590,7 +636,8 @@ fun PreMatchScreen(
                     phaseTitle = "Molekuláris dokkolás",
                     phaseSubtitle = "Taktikai és Geometriai Affinitás & Receptor-illeszkedés",
                     content = res.phase1MolecularDocking,
-                    accentColor = NeonCyan
+                    accentColor = NeonCyan,
+                    onCopied = { viewModel.showStatusMessage("1. Fázis kimásolva! 📋") }
                 )
             }
 
@@ -600,7 +647,8 @@ fun PreMatchScreen(
                     phaseTitle = "Metabolikus Kinetika",
                     phaseSubtitle = "Időbeli Degradáció, Entrópia & 60. perc utáni görbe",
                     content = res.phase2MetabolicKinetics,
-                    accentColor = BioViolet
+                    accentColor = BioViolet,
+                    onCopied = { viewModel.showStatusMessage("2. Fázis kimásolva! 📋") }
                 )
             }
 
@@ -610,7 +658,8 @@ fun PreMatchScreen(
                     phaseTitle = "Nemlineáris Gólképlet",
                     phaseSubtitle = "Szimbolikus Regresszió & Taktikai Súrlódási Szorzó",
                     content = res.phase3FormulaExplanation,
-                    accentColor = ElectricBlue
+                    accentColor = ElectricBlue,
+                    onCopied = { viewModel.showStatusMessage("3. Fázis kimásolva! 📋") }
                 )
             }
 
@@ -620,24 +669,67 @@ fun PreMatchScreen(
                     phaseTitle = "Monte-Carlo Valószínűségi Predikció",
                     phaseSubtitle = "xG spektrum & Fekete Hattyú anomália-faktor",
                     content = res.phase4MonteCarloText,
-                    accentColor = KineticEmerald
+                    accentColor = KineticEmerald,
+                    onCopied = { viewModel.showStatusMessage("4. Fázis kimásolva! 📋") }
                 )
             }
 
-            // Save to Room Button
+            // Action Buttons: Copy Full Analysis & Save to Room
             item {
-                Button(
-                    onClick = { viewModel.saveCurrentPreMatch() },
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceCard, contentColor = NeonCyan),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        .testTag("save_prematch_btn")
-                ) {
-                    Icon(Icons.Default.BookmarkAdd, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Elemzés Mentése az Archívumba (Room DB)")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = {
+                            val isUnder = res.calculatedXg <= 2.45 || res.under25Prob >= 0.52
+                            val fullText = buildString {
+                                appendLine("═══════════════════════════════════════")
+                                appendLine("🔬 BIOMATCH xG TUDOMÁNYOS PREDIKCIÓ")
+                                appendLine("Mérkőzés: ${input.homeTeam} vs ${input.awayTeam}")
+                                appendLine("═══════════════════════════════════════")
+                                appendLine("🎯 FŐ AJÁNLÁS: ${if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else if (isUnder) "Under 2.5 gól" else "Over 2.5 gól"}")
+                                if (res.secondaryBetTip.isNotBlank()) {
+                                    appendLine("🛡️ BIZTONSÁGI PIAC: ${res.secondaryBetTip}")
+                                }
+                                appendLine("📊 Számított xG: ${String.format("%.2f", res.calculatedXg)}")
+                                appendLine("🎯 Legvalószínűbb tartomány: ${res.mostLikelyInterval}")
+                                appendLine("🧬 Kötési Affinitási Index: ${res.bindingAffinityIndex}/10")
+                                appendLine("📈 Valószínűségek: Over 2.5: ${(res.over25Prob * 100).toInt()}% | Under 2.5: ${(res.under25Prob * 100).toInt()}%")
+                                appendLine("\n1️⃣ FÁZIS - MOLEKULÁRIS DOKKOLÁS:\n${res.phase1MolecularDocking}")
+                                appendLine("\n2️⃣ FÁZIS - METABOLIKUS KINETIKA:\n${res.phase2MetabolicKinetics}")
+                                appendLine("\n3️⃣ FÁZIS - NEMLINEÁRIS GÓLKÉPLET:\n${res.phase3FormulaExplanation}")
+                                appendLine("\n4️⃣ FÁZIS - MONTE-CARLO PREDIKCIÓ:\n${res.phase4MonteCarloText}")
+                                if (res.blackSwanFactor.isNotBlank()) {
+                                    appendLine("\n⚠️ FEKETE HATTYÚ ANOMÁLIA:\n${res.blackSwanFactor}")
+                                }
+                                appendLine("═══════════════════════════════════════")
+                            }
+                            clipboardManager.setText(AnnotatedString(fullText))
+                            viewModel.showStatusMessage("Teljes elemzés kimásolva a vágólapra! 📋")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue.copy(alpha = 0.2f), contentColor = ElectricBlue),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, ElectricBlue.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                            .testTag("copy_full_prematch_btn")
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("TELJES ELEMZÉS MÁSOLÁSA VÁGÓLAPRA", fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = { viewModel.saveCurrentPreMatch() },
+                        colors = ButtonDefaults.buttonColors(containerColor = SurfaceCard, contentColor = NeonCyan),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            .testTag("save_prematch_btn")
+                    ) {
+                        Icon(Icons.Default.BookmarkAdd, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Elemzés Mentése az Archívumba (Room DB)")
+                    }
                 }
             }
         }

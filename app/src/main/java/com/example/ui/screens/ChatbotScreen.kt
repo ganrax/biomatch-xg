@@ -20,8 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.SmartToy
@@ -45,7 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +73,7 @@ fun ChatbotScreen(
     val messages by viewModel.chatMessages.collectAsState()
     val isThinking by viewModel.isChatThinking.collectAsState()
     val listState = rememberLazyListState()
+    val clipboardManager = LocalClipboardManager.current
 
     var inputQuery by remember { mutableStateOf("") }
 
@@ -224,16 +229,34 @@ fun ChatbotScreen(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.1.sp
                                 )
+                                IconButton(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(msg.message))
+                                        viewModel.showStatusMessage("Üzenet kimásolva a vágólapra! 📋")
+                                    },
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        contentColor = if (isUser) ElectricBlue.copy(alpha = 0.8f) else NeonCyan.copy(alpha = 0.8f)
+                                    ),
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Üzenet másolása",
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(6.dp))
 
-                            Text(
-                                text = msg.message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextPrimary,
-                                lineHeight = 22.sp
-                            )
+                            SelectionContainer {
+                                Text(
+                                    text = msg.message,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary,
+                                    lineHeight = 22.sp
+                                )
+                            }
                         }
                     }
                 }

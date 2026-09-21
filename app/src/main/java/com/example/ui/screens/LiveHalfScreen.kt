@@ -19,8 +19,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Speed
@@ -32,6 +34,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,7 +52,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -82,6 +88,7 @@ fun LiveHalfScreen(
     val input by viewModel.liveHalfInput.collectAsState()
     val analysis by viewModel.liveHalfAnalysis.collectAsState()
     val isLoading by viewModel.isLiveHalfLoading.collectAsState()
+    val clipboardManager = LocalClipboardManager.current
 
     var showDetailedStats by remember { mutableStateOf(false) }
 
@@ -483,19 +490,54 @@ fun LiveHalfScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // PRIMARY CONCRETE BET TIP
-                        Text(
-                            text = "🎯 KONKRÉT FOGADÁSI TIPP (15' ÁLLÁS: ${input.currentScore}):",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else res.mostValuableMarket,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🎯 KONKRÉT FOGADÁSI TIPP (15' ÁLLÁS: ${input.currentScore}):",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                            IconButton(
+                                onClick = {
+                                    val tipText = buildString {
+                                        appendLine("⚡ BioMatch xG Élő 1. Félidős Tipp: ${input.homeTeam} vs ${input.awayTeam}")
+                                        appendLine("⏱️ 15. perces állás: ${input.currentScore}")
+                                        appendLine("📌 Fő tipp: ${if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else res.mostValuableMarket}")
+                                        if (res.secondaryBetTip.isNotBlank()) {
+                                            appendLine("🛡️ Biztonsági piac: ${res.secondaryBetTip}")
+                                        }
+                                        appendLine("📊 1H Várható xG: ${String.format("%.2f", res.calculated1hXg)} | Domináns irány: ${res.dominantMarketDirection}")
+                                        appendLine("📈 1H Under 0.5: ${(res.under05Prob * 100).toInt()}% | 1H Under 1.5: ${(res.under15Prob * 100).toInt()}%")
+                                        if (res.blackSwanFactor.isNotBlank()) {
+                                            appendLine("⚠️ Gátlástörő anomália: ${res.blackSwanFactor}")
+                                        }
+                                    }
+                                    clipboardManager.setText(AnnotatedString(tipText))
+                                    viewModel.showStatusMessage("Élő tipp kimásolva a vágólapra! 📋")
+                                },
+                                colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White),
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Élő tipp másolása",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        SelectionContainer {
+                            Text(
+                                text = if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else res.mostValuableMarket,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -516,19 +558,21 @@ fun LiveHalfScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = "🛡️ BIZTONSÁGI / MÁSODLAGOS PIAC:",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = bannerColor
                                         )
-                                        Text(
-                                            text = res.secondaryBetTip,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Medium,
-                                            color = TextPrimary
-                                        )
+                                        SelectionContainer {
+                                            Text(
+                                                text = res.secondaryBetTip,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium,
+                                                color = TextPrimary
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -650,7 +694,8 @@ fun LiveHalfScreen(
             // Black Swan Hazard
             item {
                 BlackSwanAlertCard(
-                    anomalyText = "Gátlástörő Fekete Hattyú: ${res.blackSwanFactor}"
+                    anomalyText = "Gátlástörő Fekete Hattyú: ${res.blackSwanFactor}",
+                    onCopied = { viewModel.showStatusMessage("Fekete Hattyú leírás kimásolva! 📋") }
                 )
             }
 
@@ -671,7 +716,8 @@ fun LiveHalfScreen(
                     phaseTitle = "Reakciósebesség (v0) vs Inhibíció",
                     phaseSubtitle = "0–15. perc: Katalízis vagy Blokkolás & Sterilitási teszt",
                     content = res.phase1ReactionAndInhibition,
-                    accentColor = KineticEmerald
+                    accentColor = KineticEmerald,
+                    onCopied = { viewModel.showStatusMessage("1. Fázis kimásolva! 📋") }
                 )
             }
 
@@ -681,7 +727,8 @@ fun LiveHalfScreen(
                     phaseTitle = "Kinetikai Fluxus & Ritmus-degradáció",
                     phaseSubtitle = "16–45. perc: Meddőségi kockázat, Game-state gátlás & Entrópia",
                     content = res.phase2KineticFlux,
-                    accentColor = ElectricBlue
+                    accentColor = ElectricBlue,
+                    onCopied = { viewModel.showStatusMessage("2. Fázis kimásolva! 📋") }
                 )
             }
 
@@ -691,7 +738,8 @@ fun LiveHalfScreen(
                     phaseTitle = "Nemlineáris Első Félidős Gólképlet",
                     phaseSubtitle = "xG(0-15) + (xG(16-45) * KSz) Számítás",
                     content = res.phase3FormulaDetails,
-                    accentColor = NeonCyan
+                    accentColor = NeonCyan,
+                    onCopied = { viewModel.showStatusMessage("3. Fázis kimásolva! 📋") }
                 )
             }
 
@@ -701,24 +749,66 @@ fun LiveHalfScreen(
                     phaseTitle = "Monte-Carlo 1H & Piaci Preferencia",
                     phaseSubtitle = "Domináns piac, Valószínűségi Mátrix & HT Score",
                     content = res.phase4MarketText,
-                    accentColor = BioViolet
+                    accentColor = BioViolet,
+                    onCopied = { viewModel.showStatusMessage("4. Fázis kimásolva! 📋") }
                 )
             }
 
-            // Save to Room Button
+            // Action Buttons: Copy Full Analysis & Save to Room
             item {
-                Button(
-                    onClick = { viewModel.saveCurrentLiveHalf() },
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceCard, contentColor = KineticEmerald),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, KineticEmerald.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        .testTag("save_live_btn")
-                ) {
-                    Icon(Icons.Default.BookmarkAdd, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Élő Elemzés Mentése az Archívumba (Room DB)")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = {
+                            val fullLiveText = buildString {
+                                appendLine("═══════════════════════════════════════")
+                                appendLine("⚡ BIOMATCH xG ÉLŐ 1. FÉLIDŐS ELEMZÉS")
+                                appendLine("Mérkőzés: ${input.homeTeam} vs ${input.awayTeam} (15' Állás: ${input.currentScore})")
+                                appendLine("═══════════════════════════════════════")
+                                appendLine("🎯 FŐ AJÁNLÁS: ${if (res.concreteBetTip.isNotBlank()) res.concreteBetTip else res.mostValuableMarket}")
+                                if (res.secondaryBetTip.isNotBlank()) {
+                                    appendLine("🛡️ BIZTONSÁGI PIAC: ${res.secondaryBetTip}")
+                                }
+                                appendLine("📊 1H Számított xG: ${String.format("%.2f", res.calculated1hXg)}")
+                                appendLine("⚡ Domináns irány: ${res.dominantMarketDirection}")
+                                appendLine("🛑 Sterilitás állapota: ${if (res.isSterileState) "STERIL / BLOKKOLT MEZŐNYJÁTÉK" else "AKTÍV / KATALIZÁLT JÁTÉK"}")
+                                appendLine("📈 1H Under 0.5: ${(res.under05Prob * 100).toInt()}% | 1H Under 1.5: ${(res.under15Prob * 100).toInt()}%")
+                                appendLine("\n1️⃣ FÁZIS - REAKCIÓSEBESSÉG & INHIBÍCIÓ:\n${res.phase1ReactionAndInhibition}")
+                                appendLine("\n2️⃣ FÁZIS - KINETIKAI FLUXUS & RITMUS-DEGRADÁCIÓ:\n${res.phase2KineticFlux}")
+                                appendLine("\n3️⃣ FÁZIS - NEMLINEÁRIS 1H GÓLKÉPLET:\n${res.phase3FormulaDetails}")
+                                appendLine("\n4️⃣ FÁZIS - MONTE-CARLO 1H & PIACI PREFERENCIA:\n${res.phase4MarketText}")
+                                if (res.blackSwanFactor.isNotBlank()) {
+                                    appendLine("\n⚠️ GÁTLÁSTÖRŐ ANOMÁLIA:\n${res.blackSwanFactor}")
+                                }
+                                appendLine("═══════════════════════════════════════")
+                            }
+                            clipboardManager.setText(AnnotatedString(fullLiveText))
+                            viewModel.showStatusMessage("Teljes élő elemzés kimásolva a vágólapra! 📋")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = KineticEmerald.copy(alpha = 0.2f), contentColor = KineticEmerald),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, KineticEmerald.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                            .testTag("copy_full_live_btn")
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("TELJES ÉLŐ ELEMZÉS MÁSOLÁSA VÁGÓLAPRA", fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = { viewModel.saveCurrentLiveHalf() },
+                        colors = ButtonDefaults.buttonColors(containerColor = SurfaceCard, contentColor = KineticEmerald),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, KineticEmerald.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            .testTag("save_live_btn")
+                    ) {
+                        Icon(Icons.Default.BookmarkAdd, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Élő Elemzés Mentése az Archívumba (Room DB)")
+                    }
                 }
             }
         }

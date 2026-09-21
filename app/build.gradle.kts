@@ -20,12 +20,12 @@ android {
     applicationId = "com.aistudio.biomatchxg.vqznm"
     minSdk = 24
     targetSdk = 36
-    versionCode = 9
-    versionName = "1.0.7"
+    versionCode = 10
+    versionName = "1.0.8"
 
     val buildTime = SimpleDateFormat("yyyy.MM.dd - HH:mm", Locale.getDefault()).format(Date())
     buildConfigField("String", "BUILD_TIME_STR", "\"$buildTime\"")
-    buildConfigField("int", "BUILD_NUMBER", "9")
+    buildConfigField("int", "BUILD_NUMBER", "10")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

@@ -16,14 +16,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.Calculate
-import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,16 +39,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.KineticEmerald
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.SurfaceCardHover
+import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
@@ -56,9 +61,11 @@ fun PhaseCard(
     content: String,
     accentColor: Color = NeonCyan,
     initiallyExpanded: Boolean = true,
+    onCopied: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(initiallyExpanded) }
+    val clipboardManager = LocalClipboardManager.current
 
     val icon: ImageVector = when (phaseNumber) {
         1 -> Icons.Default.Science
@@ -119,11 +126,29 @@ fun PhaseCard(
                     }
                 }
 
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (isExpanded) "Collapse" else "Expand",
-                    tint = TextSecondary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            val textToCopy = "$phaseNumber. FÁZIS: $phaseTitle ($phaseSubtitle)\n\n$content"
+                            clipboardManager.setText(AnnotatedString(textToCopy))
+                            onCopied?.invoke()
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = TextSecondary),
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Fázis másolása",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                        tint = TextSecondary
+                    )
+                }
             }
 
             // Expanded body
@@ -139,12 +164,14 @@ fun PhaseCard(
                             .background(SurfaceCardHover, RoundedCornerShape(12.dp))
                             .padding(14.dp)
                     ) {
-                        Text(
-                            text = content,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
-                            lineHeight = 22.sp
-                        )
+                        SelectionContainer {
+                            Text(
+                                text = content,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary,
+                                lineHeight = 22.sp
+                            )
+                        }
                     }
                 }
             }
