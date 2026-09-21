@@ -423,9 +423,10 @@ Elemezd a csatolt ${images.size} darab képernyőképet (Flashscore, SofaScore, 
 4. SZIGORÚAN TILOS a bajnokság nevét (pl. "Spanish La Liga 2", "Premier League", "LaLiga", "Bajnokok Ligája", "Serie A", "NB I", "Bundesliga") csapatnévnek megadni!
 5. Ha 3 betűs rövidítés látható (pl. "MCI", "RMA", "FCB", "ATM", "CHE", "ARS"), add meg a teljes elismert klubnevet.
 
-📊 MECCSSTATISZTIKÁK:
-- "score": aktuális állás (pl. "0-0", "1-0", "2-1").
-- "minute": aktuális játékperc (pl. 15, 32, 45).
+📊 MECCSSTATISZTIKÁK ÉS EREDMÉNY:
+- "score": a mérkőzés AKTUÁLIS ÁLLÁSA / GÓLOK SZÁMA (pl. "0-0", "1-0", "2-1").
+  ⚠️ VIGYÁZAT: SZIGORÚAN TILOS a kezdési időpontot (pl. "16:35", "18:00", "20:45") vagy dátumot eredménynek nézni! Ha a két csapat között pl. "0 17 0" van, az Hazai: 0 gól, 17. perc, Vendég: 0 gól -> "0-0". Labdarúgásban a gólok száma reálisan 0 és 9 között van.
+- "minute": aktuális játékperc (pl. 15, 17, 32, 45).
 - Kapura lövések (shotsHome, shotsAway), kaput eltaláló (shotsHomeOnTarget, shotsAwayOnTarget), veszélyes támadások (dangerousAttacksHome, dangerousAttacksAway), szögletek (cornersHome, cornersAway), labdabirtoklás % (possessionHome, possessionAway).
 - "context": Bajnokság neve, hiányzók, időjárás, taktikai felállás az összes kép alapján összefoglalva.
 - "homeBaseXg", "awayBaseXg": Várható gólok (xG) ha látható, vagy becsült érték.
@@ -583,10 +584,13 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen:
 
             val j = JSONObject(jsonStr)
 
+            val rawScore = j.optString("score").takeIf { it.isNotBlank() }
+            val sanitizedScore = OcrMatchExtractor.sanitizeFootballScore(rawScore)
+
             ExtractedMatchData(
                 homeTeam = cleanTeamName(j.optString("homeTeam")),
                 awayTeam = cleanTeamName(j.optString("awayTeam")),
-                score = j.optString("score").takeIf { it.isNotBlank() },
+                score = sanitizedScore,
                 minute = if (j.has("minute") && !j.isNull("minute")) j.optInt("minute") else null,
                 shotsHome = if (j.has("shotsHome") && !j.isNull("shotsHome")) j.optInt("shotsHome") else null,
                 shotsAway = if (j.has("shotsAway") && !j.isNull("shotsAway")) j.optInt("shotsAway") else null,
@@ -652,9 +656,18 @@ Válaszod KIZÁRÓLAG egyetlen érvényes JSON objektum legyen:
             }
         }
 
-        // Score pattern: "1 - 0" or "0:0"
-        val scoreMatch = Regex("(\\d+)\\s*[-–:]\\s*(\\d+)").find(raw)
-        score = scoreMatch?.value
+        // Score pattern: "1 - 0" or "0:0" (rejecting time stamps like 16:35)
+        val scoreMatches = Regex("(?<=\\s|^)(\\d{1,2})\\s*[-–:]\\s*(\\d{1,2})(?=\\s|$)").findAll(raw)
+        for (m in scoreMatches) {
+            val fullMatch = m.value
+            if (!OcrMatchExtractor.isLikelyTimeOrDate(fullMatch)) {
+                val candidate = OcrMatchExtractor.sanitizeFootballScore("${m.groupValues[1]}-${m.groupValues[2]}")
+                if (candidate != null) {
+                    score = candidate
+                    break
+                }
+            }
+        }
 
         return ExtractedMatchData(
             homeTeam = home,

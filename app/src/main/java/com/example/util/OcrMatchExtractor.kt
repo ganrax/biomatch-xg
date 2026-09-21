@@ -218,33 +218,48 @@ object OcrMatchExtractor {
         }
 
         // --- STEP 2: SCOREBOARD & MINUTE DETECTION (Top Center) ---
+        // Scoreboard in Goaloo, Flashscore, SofaScore is usually at Y=0.10..0.30, center X=0.28..0.72
         val centerScoreItems = heroCandidates.filter { it.centerXRel in 0.28f..0.72f }
 
-        // Look for combined score strings like "0 - 0", "1:0", "2 - 1"
+        // Look for combined score strings like "0 - 0", "1:0", "2 - 1" (excluding timestamps like 16:35 or dates)
         for (item in centerScoreItems) {
-            val scoreMatch = Regex("(\\d+)\\s*[-–:]\\s*(\\d+)").find(item.text)
+            val text = item.text.trim()
+            if (isLikelyTimeOrDate(text)) continue
+
+            val scoreMatch = Regex("^(\\d{1,2})\\s*[-–:]\\s*(\\d{1,2})$").find(text)
+                ?: Regex("(?<=\\s|^)(\\d{1,2})\\s*[-–:]\\s*(\\d{1,2})(?=\\s|$)").find(text)
+
             if (scoreMatch != null) {
-                score = "${scoreMatch.groupValues[1]}-${scoreMatch.groupValues[2]}"
-                break
+                val candidate = sanitizeFootballScore("${scoreMatch.groupValues[1]}-${scoreMatch.groupValues[2]}")
+                if (candidate != null) {
+                    score = candidate
+                    break
+                }
             }
         }
 
-        // Look for 3 horizontal numbers in center: [homeScore, minute, awayScore] e.g. "0", "32", "0" (Goaloo style)
+        // Look for 3 horizontal numbers in center: [homeScore, minute, awayScore] e.g. "0", "17", "0" (Goaloo style)
         if (score == null) {
             val digitsInCenter = centerScoreItems
-                .filter { it.text.matches(Regex("^\\d{1,2}$")) }
+                .filter { it.text.matches(Regex("^\\d{1,2}$")) && !isLikelyTimeOrDate(it.text) }
                 .sortedBy { it.centerXRel }
 
             if (digitsInCenter.size >= 3) {
                 val hScore = digitsInCenter[0].text
                 val minVal = digitsInCenter[1].text.toIntOrNull()
                 val aScore = digitsInCenter[2].text
-                score = "$hScore-$aScore"
-                if (minVal != null && minVal in 1..120) {
-                    minute = minVal
+                val candidate = sanitizeFootballScore("$hScore-$aScore")
+                if (candidate != null) {
+                    score = candidate
+                    if (minVal != null && minVal in 1..120) {
+                        minute = minVal
+                    }
                 }
             } else if (digitsInCenter.size == 2) {
-                score = "${digitsInCenter[0].text}-${digitsInCenter[1].text}"
+                val candidate = sanitizeFootballScore("${digitsInCenter[0].text}-${digitsInCenter[1].text}")
+                if (candidate != null) {
+                    score = candidate
+                }
             }
         }
 
@@ -442,5 +457,45 @@ object OcrMatchExtractor {
         }
 
         return true
+    }
+
+    /**
+     * Rejects time strings (e.g. 16:35, 20:45) and dates (e.g. 09/21/2026, 21.09) so they aren't parsed as scores.
+     */
+    fun isLikelyTimeOrDate(text: String): Boolean {
+        val t = text.trim()
+        // Date formats: 09/21/2026, 21/09/2026, 2026-09-21, 21.09.2026
+        if (t.matches(Regex(".*\\d{1,4}[/.-]\\d{1,2}[/.-]\\d{2,4}.*"))) return true
+        // Time format with 2 digits: 16:35, 18:00, 20:45
+        val timeMatch = Regex("(?:^|\\s)([01]?\\d|2[0-3]):([0-5]\\d)(?:\\s|$)").find(t)
+        if (timeMatch != null) {
+            val h = timeMatch.groupValues[1].toIntOrNull() ?: 0
+            val m = timeMatch.groupValues[2].toIntOrNull() ?: 0
+            // In football, a 15th minute score is almost never > 6 goals per team.
+            // If either number is >= 10, or minute is standard minute (15, 30, 45, 35, etc.), it's a timestamp.
+            if (h >= 10 || m >= 10) return true
+        }
+        return false
+    }
+
+    /**
+     * Sanitizes a potential football score string (e.g. "0-0", "1-0").
+     * Rejects absurd values (e.g. "16-35") that are actually times, odds or stats.
+     */
+    fun sanitizeFootballScore(scoreStr: String?): String? {
+        if (scoreStr.isNullOrBlank()) return null
+        val trimmed = scoreStr.trim().replace(":", "-").replace("–", "-")
+        val parts = trimmed.split("-").map { it.trim() }
+        if (parts.size != 2) return null
+
+        val home = parts[0].toIntOrNull() ?: return null
+        val away = parts[1].toIntOrNull() ?: return null
+
+        // In 15th minute or 1H live football, total goals cannot reasonably exceed 9 (e.g. max 5-4)
+        if (home < 0 || away < 0) return null
+        if (home > 9 || away > 9) return null
+        if (home + away > 12) return null
+
+        return "$home-$away"
     }
 }

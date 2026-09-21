@@ -575,10 +575,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun applyExtractedMatchData(data: ExtractedMatchData, isLiveMode: Boolean) {
         if (isLiveMode) {
             val current = _liveHalfInput.value
+            val validatedScore = OcrMatchExtractor.sanitizeFootballScore(data.score) ?: current.currentScore
             val updated = current.copy(
                 homeTeam = data.homeTeam ?: current.homeTeam,
                 awayTeam = data.awayTeam ?: current.awayTeam,
-                currentScore = data.score ?: current.currentScore,
+                currentScore = validatedScore,
                 shotsHome = data.shotsHome ?: current.shotsHome,
                 shotsAway = data.shotsAway ?: current.shotsAway,
                 shotsHomeOnTarget = data.shotsHomeOnTarget ?: current.shotsHomeOnTarget,
